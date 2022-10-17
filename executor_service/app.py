@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from logger_config import logger
 
-from executor_service.endpoints import items
+from executor_service.endpoints import queries
 from executor_service.errors import APIError
 
 
@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
 executor_app = create_app()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-executor_app.include_router(items.router, prefix="/v1")
+executor_app.include_router(queries.router, prefix="/v1")
 
 
 @executor_app.middleware("http")

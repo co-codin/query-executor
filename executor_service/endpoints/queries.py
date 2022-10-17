@@ -3,6 +3,7 @@ from typing import Dict, List, Union
 
 from fastapi import APIRouter
 
+from executor_service.schemas.queries import QueryIn
 from executor_service.services.executor import ExecutorService
 
 router = APIRouter(
@@ -13,6 +14,6 @@ router = APIRouter(
 
 
 @router.post("/", response_model=Union[List[Dict], Dict])
-async def upload_item(query: str):
-    result = await ExecutorService().execute_query(query)
+async def upload_item(query_data: QueryIn):
+    result = await ExecutorService().execute_query(query_data.query, query_data.table)
     return result

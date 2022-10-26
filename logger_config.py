@@ -95,7 +95,7 @@ def config_logger():
 
 def _config_log_dir() -> str:
     configs_dir_path = os.path.abspath(os.path.dirname(__file__))
-    base_dir = os.path.join(configs_dir_path, '../../')
+    base_dir = os.path.join(configs_dir_path, '.')
     log_folder = f"{base_dir}/{settings.log_dir}"
     if not os.path.exists(log_folder):
         os.makedirs(log_folder)

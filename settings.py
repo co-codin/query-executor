@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     db_name: str = Field("postgres")
     db_user: str = Field("postgres")
     db_password: str = Field("postgres")
+    base_conn_string: str = f"{db_driver}://{db_user}:{db_password}@{db_host}:{db_port}"
 
     class Config:
         env_prefix = ""

@@ -12,9 +12,8 @@ QUERIES = {}
 
 class ExecutorService:
 
-    async def execute_query(self, query: str, table: str) -> Union[List[Dict], Dict]:
-        conn_string = f"{settings.db_driver}://{settings.db_user}:{settings.db_password}@" \
-                      f"{settings.db_host}:{settings.db_port}/{table}"
+    async def execute_query(self, query: str, db: str) -> Union[List[Dict], Dict]:
+        conn_string = settings.db_sources[db]
         conn = await asyncpg.connect(conn_string)
         query_pid_result = await conn.execute("SELECT pg_backend_pid();")
         query_pid = query_pid_result.split()[-1]
@@ -25,8 +24,7 @@ class ExecutorService:
                 await conn.execute(query)
                 data = {"result": "success"}
         global QUERIES
-        QUERIES[f"{table}_{query_pid}"] = data
-        data["info"] = f"Your query pid is {query_pid}"
+        QUERIES[f"{db}_{query_pid}"] = data
         return data
 
     async def get_query_result(self, query_pid: int, table: str) -> Union[List[Dict], Dict]:

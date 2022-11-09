@@ -1,13 +1,9 @@
 # type: ignore[attr-defined]
 import os
 
-from dotenv import load_dotenv
-
 from logger_config import logger
 
 import uvicorn
-
-load_dotenv("../.env")
 
 
 def main() -> None:

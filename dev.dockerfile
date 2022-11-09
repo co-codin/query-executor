@@ -4,11 +4,10 @@ WORKDIR /usr/local/app/
 
 RUN pip install --no-cache-dir -U pip
 
-COPY .env config.py logger_config.py requirements.txt ./
-COPY models ./models/
+COPY config.py logger_config.py requirements.txt requirements.dev.txt ./
 COPY executor_service ./executor_service/
 
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.dev.txt
 
 EXPOSE 8000
 

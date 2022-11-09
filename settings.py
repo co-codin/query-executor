@@ -9,14 +9,12 @@ class Settings(BaseSettings):
     date_time_format: str = "%Y-%m-%dT%H:%M:%S"
     encoding: str = "utf-8"
 
-    """DB constants"""
-    db_driver: str = Field("postgres")
-    db_host: str = Field("postgres")
-    db_port: str = Field("5432")
-    db_name: str = Field("postgres")
-    db_user: str = Field("postgres")
-    db_password: str = Field("postgres")
-    base_conn_string: str = f"{db_driver}://{db_user}:{db_password}@{db_host}:{db_port}"
+    db_sources: dict = {
+        'raw': 'postgresql://postgres:dwh@db:5432/postgres'
+    }
+
+    mq_connection_string: str = 'amqp://dwh:dwh@rabbit:5672'
+    exchange_execute = 'query_execute'
 
     class Config:
         env_prefix = ""

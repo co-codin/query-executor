@@ -4,8 +4,9 @@ from pydantic import BaseModel
 
 
 class QueryIn(BaseModel):
+    guid: str
     query: str
-    table: str
+    db: str
 
 
 class QueryOut(BaseModel):

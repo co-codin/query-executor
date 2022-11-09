@@ -12,14 +12,14 @@ QUERIES = {}
 
 class ExecutorService:
 
-    async def execute_query(self, query: str, table: str) -> Tuple[str, List[Dict]]:
-        conn_string = f"{settings.base_conn_string}/{table}"
+    async def execute_query(self, query: str, db: str) -> Tuple[str, List[Dict]]:
+        conn_string = settings.db_sources[db]
         conn = await asyncpg.connect(conn_string)
         query_pid_result = await conn.execute("SELECT pg_backend_pid();")
         query_pid = query_pid_result.split()[-1]
         data = await self._process_select(conn, query)  # 'SELECT * FROM dv_raw.case_hub LIMIT 5;'
         global QUERIES
-        QUERIES[f"{table}_{query_pid}"] = data
+        QUERIES[f"{db}_{query_pid}"] = data
         pid_info = f"Your query pid is {query_pid}"
         return pid_info, data
 

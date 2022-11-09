@@ -1,10 +1,15 @@
 # type: ignore[no-untyped-def]
-from typing import Dict, List
+import asyncio
+import json
+from typing import Dict, List, Union
 
 from fastapi import APIRouter
 
-from executor_service.schemas.queries import QueryIn, QueryOut, QueryPidIn
+from executor_service.schemas.queries import QueryIn, QueryPidIn
 from executor_service.services.executor import ExecutorService
+from executor_service.mq import create_channel
+
+from settings import settings
 
 router = APIRouter(
     prefix="/queries",
@@ -13,10 +18,33 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=QueryOut)
+async def execute_query(guid, sql_query, db):
+    try:
+        query_pid, result_data = await ExecutorService().execute_query(sql_query, db)
+        result = 'done'
+    except Exception as e:
+        result = 'error'
+
+    async with create_channel() as channel:
+        await channel.basic_publish(
+            exchange=settings.exchange_execute,
+            routing_key='result',
+            body=json.dumps({
+                'guid': guid,
+                'status': result,
+            })
+        )
+
+
+@router.post("/", response_model=Union[List[Dict], Dict])
 async def execute(query_data: QueryIn):
-    query_pid, result_data = await ExecutorService().execute_query(query_data.query, query_data.table)
-    return QueryOut(pid_info=query_pid, result=result_data)
+    task = execute_query(
+        guid=query_data.guid,
+        sql_query=query_data.query,
+        db=query_data.db
+    )
+    asyncio.create_task(task)
+    return {}
 
 
 @router.get("/{query_pid}/", response_model=List[Dict])

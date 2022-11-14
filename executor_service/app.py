@@ -1,13 +1,15 @@
 # type: ignore[attr-defined]
 import os
+import logging
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-from logger_config import logger
-
 from executor_service.endpoints import queries
 from executor_service.errors import APIError
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:

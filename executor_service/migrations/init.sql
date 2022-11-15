@@ -13,4 +13,11 @@ CREATE TABLE IF NOT EXISTS queries (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS results (
+    id BIGSERIAL PRIMARY KEY NOT NULL,
+    query_id BIGSERIAL,
+    dest_type VARCHAR(36) NOT NULL,
+    path TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_queries_guid ON queries (guid);

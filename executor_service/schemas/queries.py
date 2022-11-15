@@ -5,14 +5,14 @@ from pydantic import BaseModel
 
 class DestinationType(Enum):
     table = 'table'
-    csv = 'csv'
+    csv = 'file'
 
 
 class QueryIn(BaseModel):
     guid: str
     query: str
     db: str
-    result_dest: DestinationType
+    result_destinations: List[DestinationType]
 
 
 class QueryOut(BaseModel):

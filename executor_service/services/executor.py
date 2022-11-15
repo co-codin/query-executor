@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 from typing import Dict, List, Tuple
 
 import psycopg
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from settings import settings
 
@@ -14,6 +16,7 @@ from executor_service.errors import QueryNotFoundError
 from executor_service.mq import create_channel
 from executor_service.models.queries import Query
 from executor_service.fs import fs_client
+from executor_service.database import db_session
 
 
 LOG = logging.getLogger(__name__)
@@ -67,14 +70,32 @@ class ExecutorService:
         return [dict(row) for row in rows]
 
 
-async def execute_query(query: Query):
+async def execute_query(query_id: int):
     """
     Выполняет запрос в отдельной таске, возвращая управление не дожидаясь
-    :param query: SQL запрос
+    :param query_id: Идентификатор запроса
     :param db: Кодовое име базы данных, в которой запрос должен быть выполнен
     :return: Возвращает PID запроса, для дальнейшего трекинга
     """
-    await execute_query_into(query, destinations=('table', 'file'))
+    async with db_session() as session:
+        query = await session.execute(
+            select(Query)
+                .options(selectinload(Query.results))
+                .where(Query.id == query_id))
+        query = query.scalars().first()
+
+        with TemporaryDirectory() as temp_dir:
+            csv_path = os.path.join(temp_dir, f'{query.guid}.csv')
+            await _execute_sql_to_file(query, write_to=csv_path)
+
+            for dest in query.results:
+                load = RESULTS_DEST_MAPPING.get(dest.dest_type)
+                if load is None:
+                    LOG.error(f'Unknown destination type: {dest.dest_type}')
+                    continue
+                path = await load(query, csv_path)
+                dest.path = path
+
     await send_notification(query)
 
 
@@ -90,23 +111,12 @@ async def send_notification(query: Query):
         )
 
 
-async def execute_query_into(query, destinations=()):
-    with TemporaryDirectory() as temp_dir:
-        csv_path = os.path.join(temp_dir, f'{query.guid}.csv')
-        await _execute_sql_to_file(query, write_to=csv_path)
-
-        for dest in destinations:
-            load = RESULTS_DEST_MAPPING.get(dest)
-            if load is None:
-                LOG.error(f'Unknown destination type: {dest}')
-                continue
-            await load(query, csv_path)
-
-
 async def _load_into_file(query, write_from):
     async with fs_client() as fs:
         await fs.ensure_bucket(settings.minio_bucket_name)
         await fs.upload_file(settings.minio_bucket_name, f'{query.guid}.csv', write_from)
+
+    return f'{settings.minio_bucket_name}/{query.guid}.csv'
 
 
 async def _load_into_table(query, write_from):
@@ -148,6 +158,8 @@ async def _load_into_table(query, write_from):
 
                 if batch_records:
                     await _insert_many(cursor, table_name, names, batch_records)
+
+    return table_name
 
 
 async def _insert_many(cursor, table_name, field_names, records):

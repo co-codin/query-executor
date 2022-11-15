@@ -8,18 +8,19 @@ from sqlalchemy.orm import relationship
 from executor_service.database import Base
 
 
-__all__ = (
-    'Query',
-)
-
-
 class QueryStatus(Enum):
     CREATED = 'created'
     DONE = 'done'
     ERROR = 'error'
 
 
-class Query(Base):
+class QueryDestinationStatus(Enum):
+    DECLARED = 'declared'
+    UPLOADED = 'uploaded'
+    ERROR = 'error'
+
+
+class QueryExecution(Base):
     __tablename__ = 'queries'
 
     id = Column(BigInteger, primary_key=True)
@@ -42,3 +43,5 @@ class QueryDestination(Base):
     query_id = Column(BigInteger, ForeignKey('queries.id'))
     dest_type = Column(String(36), nullable=False)
     path = Column(Text, nullable=True)
+    status = Column(String(36), default=QueryDestinationStatus.DECLARED.value)
+    error_description = Column(Text, nullable=True)

@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from typing import Dict, List, Tuple
 
 import psycopg
+from psycopg import sql as sql_builder
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -14,92 +15,104 @@ from settings import settings
 
 from executor_service.errors import QueryNotFoundError
 from executor_service.mq import create_channel
-from executor_service.models.queries import Query
+from executor_service.models.queries import QueryExecution, QueryStatus, QueryDestination, QueryDestinationStatus
 from executor_service.fs import fs_client
 from executor_service.database import db_session
 
 
 LOG = logging.getLogger(__name__)
 
-QUERIES = {}
+
+ORDER_KEY = '__dwh_seq__'
 
 
 class NoResultsError(Exception):
     pass
 
 
-class ExecutorService:
+async def get_query_result(db_table: str, limit: int, offset: int) -> List[Dict]:
+    sql = sql_builder.SQL('SELECT * FROM {} ORDER BY {} LIMIT %s OFFSET %s').format(
+        sql_builder.Identifier(db_table),
+        sql_builder.Identifier(ORDER_KEY)
+    )
+    async with await psycopg.AsyncConnection.connect(settings.db_connection_string_results) as con:
+        async with con.cursor() as cursor:
+            await cursor.execute(sql, (limit, offset))
+            fields = [c.name for c in cursor.description]
 
-    async def execute_query(self, query: Query) -> Tuple[str, List[Dict]]:
-        """
-        Выполняет запрос в отдельной таске, возвращая управление не дожидаясь
-        :param query: SQL запрос
-        :param db: Кодовое име базы данных, в которой запрос должен быть выполнен
-        :return: Возвращает PID запроса, для дальнейшего трекинга
-        """
-        conn_string = settings.db_sources[query.db]
-        conn = await asyncpg.connect(conn_string, server_settings={
-            'application_name': f'sdwh_{query.id}'
-        })
-        query_pid_result = await conn.execute("SELECT pg_backend_pid();")
-        query_pid = query_pid_result.split()[-1]
-        data = await self._process_select(conn, query)  # 'SELECT * FROM dv_raw.case_hub LIMIT 5;'
-        global QUERIES
-        QUERIES[f"{db}_{query_pid}"] = data
-        pid_info = f"Your query pid is {query_pid}"
-        return pid_info, data
+            result = []
+            async for row in cursor:
+                item = dict(zip_longest(fields, row))
+                del item[ORDER_KEY]
+                result.append(item)
 
-    async def get_query_result(self, query_pid: int, table: str) -> List[Dict]:
-        try:
-            return QUERIES[f"{table}_{query_pid}"]
-        except KeyError:
-            raise QueryNotFoundError(query_pid)
+    return result
 
-    async def terminate_query(self, query_pid: int, table: str) -> str:
-        try:
-            conn_string = f"{settings.db_driver}://{settings.db_user}:{settings.db_password}@" \
-                          f"{settings.db_host}:{settings.db_port}/{table}"
-            conn = await asyncpg.connect(conn_string)
-            result = await conn.execute(f"SELECT pg_cancel_pid({query_pid});")  # may use pg_terminate_pid
-            return result
-        except KeyError:
-            raise QueryNotFoundError(query_pid)
 
-    async def _process_select(self, conn, query: str) -> List[Dict]:
-        rows = await conn.fetch(query)
-        return [dict(row) for row in rows]
+async def terminate_query(self, query_pid: int, table: str) -> str:
+    try:
+        conn_string = f"{settings.db_driver}://{settings.db_user}:{settings.db_password}@" \
+                      f"{settings.db_host}:{settings.db_port}/{table}"
+        conn = await asyncpg.connect(conn_string)
+        result = await conn.execute(f"SELECT pg_cancel_pid({query_pid});")  # may use pg_terminate_pid
+        return result
+    except KeyError:
+        raise QueryNotFoundError(query_pid)
 
 
 async def execute_query(query_id: int):
     """
-    Выполняет запрос в отдельной таске, возвращая управление не дожидаясь
+    Выполняет запрос и загружает его результаты
     :param query_id: Идентификатор запроса
-    :param db: Кодовое име базы данных, в которой запрос должен быть выполнен
-    :return: Возвращает PID запроса, для дальнейшего трекинга
     """
     async with db_session() as session:
         query = await session.execute(
-            select(Query)
-                .options(selectinload(Query.results))
-                .where(Query.id == query_id))
+            select(QueryExecution)
+                .options(selectinload(QueryExecution.results))
+                .where(QueryExecution.id == query_id))
         query = query.scalars().first()
 
         with TemporaryDirectory() as temp_dir:
             csv_path = os.path.join(temp_dir, f'{query.guid}.csv')
-            await _execute_sql_to_file(query, write_to=csv_path)
+
+            try:
+                await _execute_sql_to_file(query, write_to=csv_path)
+            except Exception:
+                LOG.exception(f'Failed to run query: {query.guid}')
+                query.status = QueryStatus.ERROR.value
+                query.error_description = f'SQL execution failed'
+                await session.commit()
+                await send_notification(query)
+                return
 
             for dest in query.results:
                 load = RESULTS_DEST_MAPPING.get(dest.dest_type)
                 if load is None:
                     LOG.error(f'Unknown destination type: {dest.dest_type}')
                     continue
-                path = await load(query, csv_path)
+                try:
+                    path = await load(query, csv_path)
+                except Exception:
+                    LOG.exception(f'Failed to upload result of query {query.guid} into {dest}')
+                    dest.status = QueryDestinationStatus.ERROR.value
+                    dest.error_description = f'Failed to upload into {dest.dest_type}'
+                    query.status = QueryStatus.ERROR.value
+                    query.error_description = f'Results failed to upload into {dest.dest_type}'
+                    await session.commit()
+                    await send_notification(query)
+                    return
+
                 dest.path = path
+                dest.status = QueryDestinationStatus.UPLOADED.value
+                await session.commit()
+
+        query.status = QueryStatus.DONE.value
+        await session.commit()
 
     await send_notification(query)
 
 
-async def send_notification(query: Query):
+async def send_notification(query: QueryExecution):
     async with create_channel() as channel:
         await channel.basic_publish(
             exchange=settings.exchange_execute,
@@ -107,6 +120,7 @@ async def send_notification(query: Query):
             body=json.dumps({
                 'guid': query.guid,
                 'status': query.status,
+                'error_description': query.error_description
             })
         )
 
@@ -127,8 +141,12 @@ async def _load_into_table(query, write_from):
         names = next(rows)
         types = next(rows)
 
+        if ORDER_KEY in names:
+            raise Exception('Failed to insert order key')
+
         table_name = f'results_{int(query.id)}'
-        ddl = [f'CREATE TABLE IF NOT EXISTS {table_name} (']
+        # для пагинации результатов нужен order, добавляем дополнительное поле
+        ddl = [f'CREATE TABLE IF NOT EXISTS {table_name} ({ORDER_KEY} BIGSERIAL PRIMARY KEY,']
         fields = []
         for name, type_ in zip_longest(names, types):
             fields.append(f'"{name}" {type_}')
@@ -185,9 +203,13 @@ RESULTS_DEST_MAPPING = {
 }
 
 
+def db_app_name(query: QueryExecution):
+    return f'sdwh_{query.id}'
+
+
 async def _execute_sql_to_file(query, write_to):
     conn_string = settings.db_sources[query.db]
-    async with await psycopg.AsyncConnection.connect(f'{conn_string}?application_name=sdwh_{query.id}') as con:
+    async with await psycopg.AsyncConnection.connect(f'{conn_string}?application_name={db_app_name(query)}') as con:
         async with con.cursor(f'server_cursor_{query.id}') as cursor:
             await cursor.execute(query.query)
 

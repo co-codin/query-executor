@@ -15,8 +15,10 @@ CREATE TABLE IF NOT EXISTS queries (
 
 CREATE TABLE IF NOT EXISTS results (
     id BIGSERIAL PRIMARY KEY NOT NULL,
-    query_id BIGSERIAL,
+    query_id BIGINT,
     dest_type VARCHAR(36) NOT NULL,
+    status VARCHAR(64) NOT NULL,
+    error_description TEXT,
     path TEXT
 );
 

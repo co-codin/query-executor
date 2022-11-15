@@ -15,6 +15,11 @@ class QueryIn(BaseModel):
     result_destinations: List[DestinationType]
 
 
+class QueryResultIn(BaseModel):
+    limit: int
+    offset: int
+
+
 class QueryOut(BaseModel):
     pid_info: str
     result: List[Dict]

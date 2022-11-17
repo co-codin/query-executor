@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from executor_service.schemas.queries import QueryIn, QueryPidIn
-from executor_service.services.executor import execute_query, get_query_result
+from executor_service.services.executor import execute_query, get_query_result, terminate_query
 from executor_service.dependencies import db_session
 from executor_service.models.queries import QueryExecution, QueryDestination
 
@@ -80,13 +80,13 @@ async def get_result(query_id: int,
         dest.dest_type: dest for dest in query.results
     }
     if 'table' not in results:
-        raise HTTPException(status_code=403, detail='Query does not have results stored in table')
+        raise HTTPException(status_code=422, detail='Query does not have results stored in table')
 
     rows = await get_query_result(results['table'].path, limit, offset)
     return rows
 
 
-@router.delete("/{query_pid}/", response_model=str)
-async def terminate(query_data: QueryPidIn):
-    result = await ExecutorService().terminate_query(query_data.query_pid, query_data.table)
-    return result
+@router.delete("/{query_id}")
+async def terminate(query_id: int):
+    await terminate_query(query_id)
+    return {}

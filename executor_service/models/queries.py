@@ -11,6 +11,8 @@ from executor_service.database import Base
 class QueryStatus(Enum):
     CREATED = 'created'
     DONE = 'done'
+    RUNNING = 'running'
+    CANCELLED = 'cancelled'
     ERROR = 'error'
 
 

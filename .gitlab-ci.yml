@@ -1,0 +1,56 @@
+stages:
+  - test
+  - buildcontainer
+  - kubercreate
+  - removefromrepository
+
+test-branch:
+  stage: test
+  script:
+    - echo "test"
+
+buildcontainer-branch:
+  stage: buildcontainer
+  when: manual
+  script:
+    - echo "buildcontainer"
+    - chmod +x build.sh
+    - LTAG=$(echo $CI_COMMIT_BRANCH | cut -c 1-3)
+    - echo $LTAG
+    - ./build.sh "query-executor" $LTAG "dev" 8080
+
+
+kubercreate-branch:
+  stage: kubercreate
+  when: manual
+  script:
+    - |
+      [ -z "$(kubectl get --no-headers=true deployment -l=app=query-executor-web -o name | awk -F "/" '{print $2}'t)" ] || kubectl delete deployment query-executor
+    - |
+      [ -z "$(kubectl get --no-headers=true services -l=app=query-executor-nodeport -o name | awk -F "/" '{print $2}'t)" ] || kubectl delete service qe-service
+
+    - kubectl create -f ./deployment/02_deploy.yaml
+    - kubectl expose deployment query-executor -l app=query-executor-nodeport --type=NodePort --name=qe-service
+    - kubectl describe service qe-service
+    - sleep 60
+    - |
+      #!/bin/bash
+      mkdir -p ./logs
+      for var in $(kubectl get --no-headers=true pods -l=app=query-executor-web -o name | awk -F "/" '{print $2}')
+      do
+        echo " $var"
+        kubectl logs $var > ./logs/$var.log
+        kubectl cp $var:/var/logs ./logs/$var
+      done
+      ls ./logs
+
+  artifacts:
+    paths:
+      - logs
+    expire_in: 1 week
+
+removefromrepository-branch:
+  stage: removefromrepository
+  when: manual
+  script:
+    - docker rmi 10.50.4.110:5000/query-executor:dev

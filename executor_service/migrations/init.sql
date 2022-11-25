@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS results (
     dest_type VARCHAR(36) NOT NULL,
     status VARCHAR(64) NOT NULL,
     error_description TEXT,
-    path TEXT
+    path TEXT,
+    finished_at TIMESTAMP,
+    access_creds TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_queries_guid ON queries (guid);

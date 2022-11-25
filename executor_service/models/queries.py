@@ -47,3 +47,5 @@ class QueryDestination(Base):
     path = Column(Text, nullable=True)
     status = Column(String(36), default=QueryDestinationStatus.DECLARED.value)
     error_description = Column(Text, nullable=True)
+    access_creds = Column(Text)
+    finished_at = Column(DateTime)

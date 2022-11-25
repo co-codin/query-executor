@@ -2,6 +2,9 @@ import os
 import csv
 import json
 import logging
+import secrets
+import string
+from datetime import datetime
 from itertools import zip_longest
 from tempfile import TemporaryDirectory
 from typing import Dict, List
@@ -25,6 +28,11 @@ LOG = logging.getLogger(__name__)
 
 
 ORDER_KEY = '__dwh_seq__'
+CREDENTIALS_SYMBOLS = string.ascii_letters + string.digits + '+-=/,.'
+
+
+def _generate_random_string(strength: int):
+    return ''.join(secrets.choice(CREDENTIALS_SYMBOLS) for _ in range(strength))
 
 
 async def get_query_result(db_table: str, limit: int, offset: int) -> List[Dict]:
@@ -134,7 +142,7 @@ async def execute_query(query_id: int):
                     LOG.error(f'Unknown destination type: {dest.dest_type}')
                     continue
                 try:
-                    path = await load(query, csv_path)
+                    path, creds = await load(query, csv_path)
                 except Exception:
                     LOG.exception(f'Failed to upload result of query {query.guid} into {dest}')
                     dest.status = QueryDestinationStatus.ERROR.value
@@ -147,6 +155,8 @@ async def execute_query(query_id: int):
 
                 dest.path = path
                 dest.status = QueryDestinationStatus.UPLOADED.value
+                dest.finished_at = datetime.utcnow()
+                dest.access_creds = json.dumps(creds)
                 await session.commit()
 
         query.status = QueryStatus.DONE.value
@@ -170,10 +180,30 @@ async def send_notification(query: QueryExecution):
 
 async def _load_into_file(query, write_from):
     async with fs_client() as fs:
+        access_key = f'query_{query.id}_{_generate_random_string(8)}'
+        secret_key = _generate_random_string(18)
+        file_name = f'results_{query.id}.csv'
+        await fs.create_user(
+            access_key=access_key,
+            secret_key=secret_key,
+            bucket_name=settings.minio_bucket_name,
+            path=file_name
+        )
+        policy_name = f'policy_for_{query.id}'
+        await fs.create_policy(policy_name, [{
+            "Action": ["s3:GetObject"],
+            "Effect": "Allow",
+            "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}/{file_name}"],
+            "Sid": ""
+        }])
+        await fs.attach_policy(access_key, policy_name=policy_name)
         await fs.ensure_bucket(settings.minio_bucket_name)
-        await fs.upload_file(settings.minio_bucket_name, f'{query.guid}.csv', write_from)
+        await fs.upload_file(settings.minio_bucket_name, file_name, write_from)
 
-    return f'{settings.minio_bucket_name}/{query.guid}.csv'
+    return f'{settings.minio_bucket_name}/{file_name}', {
+        'access_key': access_key,
+        'secret_key': secret_key,
+    }
 
 
 async def _load_into_table(query, write_from):
@@ -203,6 +233,10 @@ async def _load_into_table(query, write_from):
                                                          cursor_factory=psycopg.AsyncClientCursor) as con:
             async with con.cursor() as cursor:
                 await cursor.execute(ddl)
+                user_name = f'sdwh_run_{query.id}'
+                user_pass = _generate_random_string(8)
+                await cursor.execute(f"CREATE USER {user_name} WITH password '{user_pass}'")
+                await cursor.execute(f"GRANT SELECT ON {table_name} TO {user_name}")
 
                 batch_size = 100
                 batch_records = []
@@ -220,7 +254,10 @@ async def _load_into_table(query, write_from):
                 if batch_records:
                     await _insert_many(cursor, table_name, names, batch_records)
 
-    return table_name
+    return table_name, {
+        'user': user_name,
+        'pass': user_pass
+    }
 
 
 async def _insert_many(cursor, table_name, field_names, records):

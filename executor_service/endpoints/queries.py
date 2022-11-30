@@ -28,7 +28,6 @@ async def execute(query_data: QueryIn, session = Depends(db_session)):
         guid=query_data.guid,
         query=query_data.query,
         db=query_data.db,
-
     )
     session.add(query)
 
@@ -59,7 +58,9 @@ async def get_query(query_id: int, session = Depends(db_session)):
         'result_destinations': [{
             'type': dest.dest_type,
             'status': dest.status,
-            'error': dest.error_description
+            'error': dest.error_description,
+            'path': dest.path,
+            'creds': dest.access_creds,
         } for dest in query.results],
     }
 

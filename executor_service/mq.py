@@ -4,7 +4,7 @@ import pika
 from contextlib import asynccontextmanager
 from pika.adapters.asyncio_connection import AsyncioConnection
 
-from settings import settings
+from executor_service.settings import settings
 
 
 LOG = logging.getLogger(__name__)

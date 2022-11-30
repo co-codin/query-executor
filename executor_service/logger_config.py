@@ -3,13 +3,15 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 import ecs_logging
-from settings import settings
+from executor_service.settings import settings
 
 
 def config_logger():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG if settings.debug else logging.INFO)
     os.makedirs(settings.log_dir, exist_ok=True)
+
+    logging.getLogger('pika').setLevel(logging.WARNING)
 
     stream_handler = logging.StreamHandler()
     logger.addHandler(stream_handler)

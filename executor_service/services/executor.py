@@ -14,7 +14,7 @@ from psycopg import sql as sql_builder
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from settings import settings
+from executor_service.settings import settings
 
 from executor_service.database import AsyncSession
 from executor_service.errors import QueryNotFoundError, QueryNotRunning

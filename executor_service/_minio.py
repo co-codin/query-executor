@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from minio.signer import sign_v4_s3
 from minio.credentials import Credentials
 
-from settings import settings
+from executor_service.settings import settings
 
 
 __all__ = [

@@ -5,19 +5,9 @@ RUN pip install --no-cache-dir -U pip
 COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
 
-RUN mkdir -p /usr/local/app/
-WORKDIR /usr/local/app/
-
-COPY config.py logger_config.py ./
-COPY executor_service ./executor_service/
-
-RUN mkdir -p /var/logs/
-RUN mkdir logs
+COPY executor_service/ /app/executor_service/
 
 EXPOSE $SERVICE_PORT
-CMD ["venv/bin/python", "-m", "executor_service"]
 
-#CMD ["uvicorn", "app.main:app" , "--host", "0.0.0.0", "--port", "8000"]
-#CMD ["python3","-m","app.main.py"]
-
-
+WORKDIR /app
+CMD ["python", "-m", "executor_service"]

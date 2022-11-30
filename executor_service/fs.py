@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from concurrent.futures.thread import ThreadPoolExecutor
 from minio import Minio
 from executor_service._minio import build_minio_request
-from settings import settings
+from executor_service.settings import settings
 
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=settings.thread_pool_size)

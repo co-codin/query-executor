@@ -1,14 +1,12 @@
 FROM python:3.8.7
 
-WORKDIR /usr/local/app/
-
 RUN pip install --no-cache-dir -U pip
 
-COPY config.py logger_config.py requirements.txt requirements.dev.txt ./
-COPY executor_service ./executor_service/
+COPY requirements.txt requirements.dev.txt /tmp/
 
-RUN pip install -r requirements.dev.txt
+RUN pip install -r /tmp/requirements.dev.txt
 
 EXPOSE 8000
 
-CMD ["venv/bin/python", "-m", "executor_service"]
+WORKDIR /app
+CMD ["python", "-m", "executor_service"]

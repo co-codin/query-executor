@@ -1,7 +1,7 @@
 # type: ignore[attr-defined]
 import os
 
-from logger_config import config_logger
+from executor_service.logger_config import config_logger
 
 import uvicorn
 

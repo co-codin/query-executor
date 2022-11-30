@@ -14,7 +14,7 @@ from psycopg import sql as sql_builder
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from settings import settings
+from executor_service.settings import settings
 
 from executor_service.database import AsyncSession
 from executor_service.errors import QueryNotFoundError, QueryNotRunning
@@ -142,7 +142,9 @@ async def execute_query(query_id: int):
                     LOG.error(f'Unknown destination type: {dest.dest_type}')
                     continue
                 try:
+                    LOG.info(f'Run {query.id} upload to {dest.dest_type} started')
                     path, creds = await load(query, csv_path)
+                    LOG.info(f'Run {query.id} upload to {dest.dest_type} finished')
                 except Exception:
                     LOG.exception(f'Failed to upload result of query {query.guid} into {dest}')
                     dest.status = QueryDestinationStatus.ERROR.value
@@ -172,6 +174,7 @@ async def send_notification(query: QueryExecution):
             routing_key='result',
             body=json.dumps({
                 'guid': query.guid,
+                'run_id': query.id,
                 'status': query.status,
                 'error_description': query.error_description
             })
@@ -185,17 +188,23 @@ async def _load_into_file(query, write_from):
         file_name = f'results_{query.id}.csv'
         await fs.create_user(
             access_key=access_key,
-            secret_key=secret_key,
-            bucket_name=settings.minio_bucket_name,
-            path=file_name
+            secret_key=secret_key
         )
         policy_name = f'policy_for_{query.id}'
-        await fs.create_policy(policy_name, [{
-            "Action": ["s3:GetObject"],
-            "Effect": "Allow",
-            "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}/{file_name}"],
-            "Sid": ""
-        }])
+        await fs.create_policy(policy_name, [
+            {
+                "Action": ["s3:GetObject"],
+                "Effect": "Allow",
+                "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}/{file_name}"],
+                "Sid": ""
+            },
+            {
+                "Action": ["s3:GetBucketLocation"],
+                "Effect": "Allow",
+                "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}"],
+                "Sid": ""
+            }
+        ])
         await fs.attach_policy(access_key, policy_name=policy_name)
         await fs.ensure_bucket(settings.minio_bucket_name)
         await fs.upload_file(settings.minio_bucket_name, file_name, write_from)
@@ -289,6 +298,7 @@ def db_app_name(query: QueryExecution):
 
 async def _execute_sql_to_file(query, write_to):
     conn_string = settings.db_sources[query.db]
+    LOG.info(f'Run {query.id} using db {conn_string}')
     async with await psycopg.AsyncConnection.connect(f'{conn_string}?application_name={db_app_name(query)}') as con:
         async with con.cursor(f'server_cursor_{query.id}') as cursor:
             await cursor.execute(query.query)

@@ -35,5 +35,9 @@ spec:
         - containerPort: 8000
       imagePullSecrets:
         - name: repositorycred
+      hostAliases:
+        - ip: 127.0.0.1        
+          hostnames:
+          - query-executor.lan            
 #      restartPolicy: OnFailure
 

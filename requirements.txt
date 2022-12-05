@@ -9,3 +9,4 @@ asyncpg == 0.25.0
 httpx==0.22.0
 argon2-cffi==21.3.0
 cryptography==38.0.3
+msgpack==1.0.3

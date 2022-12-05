@@ -4,6 +4,7 @@ import json
 import logging
 import secrets
 import string
+import typing
 from datetime import datetime
 from itertools import zip_longest
 from tempfile import TemporaryDirectory
@@ -16,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from executor_service.settings import settings
 
+from executor_service._msgpack_io import msgpack_reader, msgpack_writer
 from executor_service.database import AsyncSession
 from executor_service.errors import QueryNotFoundError, QueryNotRunning
 from executor_service.mq import create_channel
@@ -106,6 +108,12 @@ async def execute_query(query_id: int):
     Выполняет запрос и загружает его результаты
     :param query_id: Идентификатор запроса
     """
+    try:
+        await _execute_query(query_id)
+    except Exception as e:
+        LOG.exception(f'Failed to execute run {query_id}: {repr(e)}')
+
+async def _execute_query(query_id: int):
     async with db_session() as session:
         query = await _get_query(session, query_id)
         query.status = QueryStatus.RUNNING.value
@@ -182,6 +190,13 @@ async def send_notification(query: QueryExecution):
 
 
 async def _load_into_file(query, write_from):
+    with msgpack_reader(write_from) as reader, TemporaryDirectory() as dir:
+        csv_file = os.path.join(dir, 'results.csv')
+        with open(csv_file) as fd:
+            writer = csv.writer(fd)
+            for row in reader:
+                writer.writerow(row)
+
     async with fs_client() as fs:
         access_key = f'query_{query.id}_{_generate_random_string(8)}'
         secret_key = _generate_random_string(18)
@@ -216,12 +231,9 @@ async def _load_into_file(query, write_from):
 
 
 async def _load_into_table(query, write_from):
-    with open(write_from) as f:
-        reader = csv.reader(f)
-        rows = iter(reader)
-
-        names = next(rows)
-        types = next(rows)
+    with msgpack_reader(write_from) as reader:
+        names = reader.readrow()
+        types = reader.readrow()
 
         if ORDER_KEY in names:
             raise Exception('Failed to insert order key')
@@ -247,20 +259,7 @@ async def _load_into_table(query, write_from):
                 await cursor.execute(f"CREATE USER {user_name} WITH password '{user_pass}'")
                 await cursor.execute(f"GRANT SELECT ON {table_name} TO {user_name}")
 
-                batch_size = 100
-                batch_records = []
-
-                while True:
-                    try:
-                        record = next(rows)
-                        batch_records.append(record)
-
-                        if len(batch_records) > batch_size:
-                            await _insert_many(cursor, table_name, names, batch_records)
-                    except StopIteration:
-                        break
-
-                if batch_records:
+                for batch_records in to_batches(100, reader):
                     await _insert_many(cursor, table_name, names, batch_records)
 
     return table_name, {
@@ -303,20 +302,22 @@ async def _execute_sql_to_file(query, write_to):
         async with con.cursor(f'server_cursor_{query.id}') as cursor:
             await cursor.execute(query.query)
 
-            with open(write_to, 'w') as f:
-                writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-
+            with msgpack_writer(write_to) as writer:
                 # first two rows name and types
                 writer.writerow([c.name for c in cursor.description])
                 writer.writerow([c._type_display() for c in cursor.description])
 
-                batch_size = 100
-                batch_records = []
                 async for record in cursor:
-                    batch_records.append(record)
-                    if len(batch_records) > batch_size:
-                        writer.writerows(batch_records)
-                        batch_records.clear()
+                    writer.writerow(record)
 
-                if batch_records:
-                    writer.writerows(batch_records)
+
+def to_batches(size: int, iterable: typing.Iterable) -> typing.Iterable[typing.List[typing.Any]]:
+    batch_records = []
+    for record in iterable:
+        batch_records.append(record)
+        if len(batch_records) >= size:
+            yield batch_records
+            batch_records.clear()
+
+    if batch_records:
+        yield batch_records

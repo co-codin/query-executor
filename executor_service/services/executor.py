@@ -1,3 +1,4 @@
+import asyncio
 import os
 import csv
 import json
@@ -194,8 +195,9 @@ async def _load_into_file(query, write_from):
         csv_file = os.path.join(dir, 'results.csv')
         with open(csv_file) as fd:
             writer = csv.writer(fd)
-            for row in reader:
+            for row in to_batches(100, reader):
                 writer.writerow(row)
+                await asyncio.sleep(0)
 
     async with fs_client() as fs:
         access_key = f'query_{query.id}_{_generate_random_string(8)}'

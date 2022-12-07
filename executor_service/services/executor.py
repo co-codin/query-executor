@@ -193,7 +193,7 @@ async def send_notification(query: QueryExecution):
 async def _load_into_file(query, write_from):
     with msgpack_reader(write_from) as reader, TemporaryDirectory() as dir:
         csv_file = os.path.join(dir, 'results.csv')
-        with open(csv_file) as fd:
+        with open(csv_file, 'w') as fd:
             writer = csv.writer(fd)
             for row in to_batches(100, reader):
                 writer.writerow(row)

@@ -121,10 +121,10 @@ async def _execute_query(query_id: int):
         await session.commit()
 
         with TemporaryDirectory() as temp_dir:
-            csv_path = os.path.join(temp_dir, f'{query.guid}.csv')
+            data_path = os.path.join(temp_dir, f'{query.guid}.bin')
 
             try:
-                await _execute_sql_to_file(query, write_to=csv_path)
+                await _execute_sql_to_file(query, write_to=data_path)
             except psycopg.errors.QueryCanceled:
                 await session.refresh(query, with_for_update=True)
                 if query.status == QueryStatus.CANCELLED.value:
@@ -152,7 +152,7 @@ async def _execute_query(query_id: int):
                     continue
                 try:
                     LOG.info(f'Run {query.id} upload to {dest.dest_type} started')
-                    path, creds = await load(query, csv_path)
+                    path, creds = await load(query, data_path)
                     LOG.info(f'Run {query.id} upload to {dest.dest_type} finished')
                 except Exception:
                     LOG.exception(f'Failed to upload result of query {query.guid} into {dest.dest_type}')
@@ -224,7 +224,7 @@ async def _load_into_file(query, write_from):
         ])
         await fs.attach_policy(access_key, policy_name=policy_name)
         await fs.ensure_bucket(settings.minio_bucket_name)
-        await fs.upload_file(settings.minio_bucket_name, file_name, write_from)
+        await fs.upload_file(settings.minio_bucket_name, file_name, csv_file)
 
     return f'{settings.minio_bucket_name}/{file_name}', {
         'access_key': access_key,

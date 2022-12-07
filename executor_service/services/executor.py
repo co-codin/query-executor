@@ -196,7 +196,7 @@ async def _load_into_file(query, write_from):
         with open(csv_file, 'w') as fd:
             writer = csv.writer(fd)
             for row in to_batches(100, reader):
-                writer.writerow(row)
+                writer.writerows(row)
                 await asyncio.sleep(0)
 
         async with fs_client() as fs:

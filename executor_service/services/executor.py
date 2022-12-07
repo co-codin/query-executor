@@ -191,40 +191,40 @@ async def send_notification(query: QueryExecution):
 
 
 async def _load_into_file(query, write_from):
-    with msgpack_reader(write_from) as reader, TemporaryDirectory() as dir:
-        csv_file = os.path.join(dir, 'results.csv')
+    with msgpack_reader(write_from) as reader, TemporaryDirectory() as tmpdir:
+        csv_file = os.path.join(tmpdir, 'results.csv')
         with open(csv_file, 'w') as fd:
             writer = csv.writer(fd)
             for row in to_batches(100, reader):
                 writer.writerow(row)
                 await asyncio.sleep(0)
 
-    async with fs_client() as fs:
-        access_key = f'query_{query.id}_{_generate_random_string(8)}'
-        secret_key = _generate_random_string(18)
-        file_name = f'results_{query.id}.csv'
-        await fs.create_user(
-            access_key=access_key,
-            secret_key=secret_key
-        )
-        policy_name = f'policy_for_{query.id}'
-        await fs.create_policy(policy_name, [
-            {
-                "Action": ["s3:GetObject"],
-                "Effect": "Allow",
-                "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}/{file_name}"],
-                "Sid": ""
-            },
-            {
-                "Action": ["s3:GetBucketLocation"],
-                "Effect": "Allow",
-                "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}"],
-                "Sid": ""
-            }
-        ])
-        await fs.attach_policy(access_key, policy_name=policy_name)
-        await fs.ensure_bucket(settings.minio_bucket_name)
-        await fs.upload_file(settings.minio_bucket_name, file_name, csv_file)
+        async with fs_client() as fs:
+            access_key = f'query_{query.id}_{_generate_random_string(8)}'
+            secret_key = _generate_random_string(18)
+            file_name = f'results_{query.id}.csv'
+            await fs.create_user(
+                access_key=access_key,
+                secret_key=secret_key
+            )
+            policy_name = f'policy_for_{query.id}'
+            await fs.create_policy(policy_name, [
+                {
+                    "Action": ["s3:GetObject"],
+                    "Effect": "Allow",
+                    "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}/{file_name}"],
+                    "Sid": ""
+                },
+                {
+                    "Action": ["s3:GetBucketLocation"],
+                    "Effect": "Allow",
+                    "Resource": [f"arn:aws:s3:::{settings.minio_bucket_name}"],
+                    "Sid": ""
+                }
+            ])
+            await fs.attach_policy(access_key, policy_name=policy_name)
+            await fs.ensure_bucket(settings.minio_bucket_name)
+            await fs.upload_file(settings.minio_bucket_name, file_name, csv_file)
 
     return f'{settings.minio_bucket_name}/{file_name}', {
         'access_key': access_key,

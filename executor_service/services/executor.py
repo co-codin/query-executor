@@ -155,7 +155,7 @@ async def _execute_query(query_id: int):
                     path, creds = await load(query, csv_path)
                     LOG.info(f'Run {query.id} upload to {dest.dest_type} finished')
                 except Exception:
-                    LOG.exception(f'Failed to upload result of query {query.guid} into {dest}')
+                    LOG.exception(f'Failed to upload result of query {query.guid} into {dest.dest_type}')
                     dest.status = QueryDestinationStatus.ERROR.value
                     dest.error_description = f'Failed to upload into {dest.dest_type}'
                     query.status = QueryStatus.ERROR.value

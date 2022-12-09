@@ -200,7 +200,7 @@ async def _load_into_file(query, write_from):
                 await asyncio.sleep(0)
 
         async with fs_client() as fs:
-            access_key = f'query_{query.id}_{_generate_random_string(8)}'
+            access_key = f'query_{query.id}'
             secret_key = _generate_random_string(18)
             file_name = f'results_{query.id}.csv'
             await fs.create_user(
@@ -258,7 +258,7 @@ async def _load_into_table(query, write_from):
                 await cursor.execute(ddl)
                 user_name = f'sdwh_run_{query.id}'
                 user_pass = _generate_random_string(8)
-                await cursor.execute(f"CREATE USER {user_name} WITH password '{user_pass}'")
+                await cursor.execute(f"CREATE USER {user_name} WITH password %s", [user_pass])
                 await cursor.execute(f"GRANT SELECT ON {table_name} TO {user_name}")
 
                 for batch_records in to_batches(100, reader):

@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from executor_service.schemas.queries import QueryIn, QueryPidIn
+from executor_service.schemas.queries import QueryIn
 from executor_service.services.executor import execute_query, get_query_result, terminate_query
-from executor_service.dependencies import db_session
+from executor_service.dependencies import db_session, get_user
 from executor_service.models.queries import QueryExecution, QueryDestination
 
 
@@ -22,12 +22,19 @@ router = APIRouter(
 MAX_LIMIT = 1000
 
 
+def available_to_user(query: QueryExecution, user: dict):
+    if user.get('is_superuser'):
+        return True
+    return query.identity_id == user['identity_id']
+
+
 @router.post("/", response_model=Union[List[Dict], Dict])
 async def execute(query_data: QueryIn, session = Depends(db_session)):
     query = QueryExecution(
         guid=query_data.guid,
         query=query_data.query,
         db=query_data.db,
+        identity_id=query_data.identity_id,
     )
     session.add(query)
 
@@ -44,13 +51,16 @@ async def execute(query_data: QueryIn, session = Depends(db_session)):
 
 
 @router.get("/{query_id}", response_model=Dict)
-async def get_query(query_id: int, session = Depends(db_session)):
+async def get_query(query_id: int, session = Depends(db_session), user = Depends(get_user)):
     query = await session.execute(
         select(QueryExecution).options(selectinload(QueryExecution.results)).where(QueryExecution.id == query_id)
     )
     query = query.scalars().first()
     if query is None:
         raise HTTPException(status_code=404)
+
+    if not available_to_user(query, user):
+        raise HTTPException(status_code=401)
 
     return {
         'status': query.status,
@@ -69,13 +79,17 @@ async def get_query(query_id: int, session = Depends(db_session)):
 async def get_result(query_id: int,
                      limit: int = Query(default=None, gt=0, lt=MAX_LIMIT),
                      offset: int = Query(default=None, ge=0),
-                     session = Depends(db_session)):
+                     session = Depends(db_session),
+                     user = Depends(get_user)):
     query = await session.execute(
         select(QueryExecution).options(selectinload(QueryExecution.results)).where(QueryExecution.id == query_id)
     )
     query = query.scalars().first()
     if query is None:
         raise HTTPException(status_code=404)
+
+    if not available_to_user(query, user):
+        raise HTTPException(status_code=401)
 
     results = {
         dest.dest_type: dest for dest in query.results

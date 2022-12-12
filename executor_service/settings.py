@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     thread_pool_size = 100
 
     class Config:
-        env_prefix = ""
+        env_prefix = "dwh_query_executor_"
         case_sensitive = False
         env_file = "../.env"
         env_file_encoding = "utf-8"

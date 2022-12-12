@@ -13,6 +13,7 @@ class QueryIn(BaseModel):
     query: str
     db: str
     result_destinations: List[DestinationType]
+    identity_id: str
 
 
 class QueryResultIn(BaseModel):
@@ -24,7 +25,3 @@ class QueryOut(BaseModel):
     pid_info: str
     result: List[Dict]
 
-
-class QueryPidIn(BaseModel):
-    query_pid: int
-    table: str

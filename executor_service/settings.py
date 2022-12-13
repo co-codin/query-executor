@@ -15,9 +15,10 @@ class Settings(BaseSettings):
     db_connection_string: str = 'postgresql+asyncpg://postgres:dwh@db.lan:5432/executor'
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/executor'
     db_sources: dict = {
-        'raw': 'postgresql://postgres:dwh@db.lan:5432/postgres'
+        'raw': 'postgresql://postgres:dwh@db.lan:5432/dwh'
     }
     db_connection_string_results: str = 'postgresql://postgres:dwh@db.lan:5432/results'
+    api_iam = 'http://iam.lan:8000'
 
     minio_host: str = 'minio.lan:9000'
     minio_access_key: str = 'dwh_access_key'

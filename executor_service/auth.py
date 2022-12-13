@@ -4,7 +4,7 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 
-from app.config import settings
+from executor_service.settings import settings
 
 
 __PUBLIC_KEYS = {}

@@ -29,6 +29,7 @@ class QueryExecution(Base):
     guid = Column(String(36), nullable=False, default=lambda: str(uuid4()), unique=True, index=True)
     db = Column(String(36), nullable=False)
     query = Column(Text, nullable=False)
+    identity_id = Column(String(36))
     status = Column(String(36), default=QueryStatus.CREATED.value)
     error_description = Column(Text, nullable=True)
 

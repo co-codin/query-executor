@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from executor_service.endpoints import queries
 from executor_service.errors import APIError
+from executor_service.auth import load_jwks
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,11 @@ executor_app = create_app()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 executor_app.include_router(queries.router, prefix="/v1")
+
+
+@executor_app.on_event('startup')
+async def on_startup():
+    await load_jwks()
 
 
 @executor_app.middleware("http")

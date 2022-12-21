@@ -22,10 +22,28 @@ spec:
         tier: frontend
         track: stable      
     spec:
+      volumes:
+      - name: volumelogs
+        hostPath:
+          path: /mnt/logs
       containers:
       - env:
+        - name: dwh_query_executor_db_connection_string
+          value: postgresql+asyncpg://postgres:dwh@postgres:5432/executor
+        - name: dwh_query_executor_db_migration_connection_string
+          value: postgresql+psycopg2://postgres:dwh@postgres:5432/executor
+        - name: dwh_query_executor_db_sources
+          value: "{\"raw\": \"postgresql://postgres:dwh@postgres:5432/dwh\"}"
+        - name: dwh_query_executor_db_connection_string_results
+          value: "postgresql://postgres:dwh@postgres:5432/results"
+        - name: dwh_query_executor_api_iam
+          value: http://iam:8000
+        - name: dwh_query_executor_minio_host
+          value: minio:9000
+        - name: dwh_query_executor_mq_connection_string
+          value: amqp://dwh:dwh@rabbitmq:5672
         - name: LOG_DIR
-          value: /var/logs
+          value: /var/log/n3dwh/
         - name: SERVICE_PORT
           value: "8000"
         image: 10.50.4.110:5000/query-executor:dev
@@ -33,6 +51,9 @@ spec:
         name: query-executor
         ports:
         - containerPort: 8000
+        volumeMounts:
+          - mountPath: /var/log/n3dwh/
+            name: volumelogs               
       imagePullSecrets:
         - name: repositorycred
       hostAliases:

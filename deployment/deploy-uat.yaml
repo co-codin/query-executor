@@ -5,7 +5,6 @@ metadata:
     app.kubernetes.io/name: dwh-query-executor
     app: query-executor-web
   name: query-executor
-#  namespace: dwh-dev
 spec:
   replicas: 1
   selector:
@@ -60,5 +59,20 @@ spec:
         - ip: 127.0.0.1        
           hostnames:
           - query-executor.lan            
-#      restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: query-executor
+  labels:
+    app: query-executor-web   
+spec:
+  clusterIP: None
+  ports:
+   - name: http
+     protocol: TCP
+     port: 8000
+  selector:
+   app: query-executor-web 
 

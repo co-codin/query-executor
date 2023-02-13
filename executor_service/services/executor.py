@@ -18,13 +18,14 @@ from sqlalchemy.orm import selectinload
 
 from executor_service.settings import settings
 
-from executor_service._msgpack_io import msgpack_reader, msgpack_writer
+from executor_service._msgpack_io import msgpack_reader
 from executor_service.database import AsyncSession
 from executor_service.errors import QueryNotFoundError, QueryNotRunning
 from executor_service.mq import create_channel
 from executor_service.models.queries import QueryExecution, QueryStatus, QueryDestinationStatus
 from executor_service.fs import fs_client
 from executor_service.database import db_session
+from executor_service.services.query_runner import QueryRunner, PostgresRunner, ClickhouseRunner
 
 
 LOG = logging.getLogger(__name__)
@@ -74,34 +75,21 @@ async def terminate_query(query_id: int):
         if query.status != QueryStatus.RUNNING.value:
             raise QueryNotRunning(query_id=query_id)
 
-        conn_string = settings.db_sources[query.db]
-        async with await psycopg.AsyncConnection.connect(conn_string) as con:
-            async with con.cursor() as cursor:
-                await cursor.execute(
-                    """
-                    select pid, backend_start, query from pg_stat_activity
-                    where state='active' and application_name=%s
-                    """, [db_app_name(query)]
-                )
-                row = await cursor.fetchone()
-                if not row:
-                    raise QueryNotRunning(query_id=query_id)
+        query_runner_class = SOURCES_TO_QUERY_RUNNER_TYPE[query.db]
+        query_runner: QueryRunner = query_runner_class(query_id=query.id)
 
-                pid, started_at, sql = row
+        # в том случае, если процесс выполнения запроса работает,
+        # его отмена из другого выдаст ошибку в первом
+        # это будет работать в случае запуска сервиса в нескольких процессах или на нескольких нодах
+        # также существует риск рейс кондишена когда первый процесс уже упал,
+        # а второй еще не установил статус в Cancelled,
+        # в таком случае первый процесс совершенно законно поставит статус ошибки
+        # чтобы этого избежать нужно сделать быстрый row-lock на отмену pg бакенда и установки статуса
 
-                LOG.info(f'Cancelling query {query.id} {query.guid} having db pid {pid} running query {sql}')
-
-                # в том случае, если процесс выполнения запроса работает,
-                # его отмена из другого выдаст ошибку в первом
-                # это будет работать в случае запуска сервиса в нескольких процессах или на нескольких нодах
-                # также существует риск рейс кондишена когда первый процесс уже упал,
-                # а второй еще не установил статус в Cancelled,
-                # в таком случае первый процесс совершенно законно поставит статус ошибки
-                # чтобы этого избежать нужно сделать быстрый row-lock на отмену pg бакенда и установки статуса
-                await session.refresh(query, with_for_update=True)
-                await cursor.execute("SELECT pg_cancel_backend(%s)", [pid])
-                query.status = QueryStatus.CANCELLED.value
-                await session.commit()
+        await session.refresh(query, with_for_update=True)
+        await query_runner.cancel(query_guid=query.guid)
+        query.status = QueryStatus.CANCELLED.value
+        await session.commit()
 
 
 async def execute_query(query_id: int):
@@ -113,6 +101,7 @@ async def execute_query(query_id: int):
         await _execute_query(query_id)
     except Exception as e:
         LOG.exception(f'Failed to execute run {query_id}: {repr(e)}')
+
 
 async def _execute_query(query_id: int):
     async with db_session() as session:
@@ -292,25 +281,19 @@ RESULTS_DEST_MAPPING = {
     'file': _load_into_file,
 }
 
-
-def db_app_name(query: QueryExecution):
-    return f'sdwh_{query.id}'
+SOURCES_TO_QUERY_RUNNER_TYPE = {
+    'raw': PostgresRunner,
+    'clickhouse': ClickhouseRunner
+}
 
 
 async def _execute_sql_to_file(query, write_to):
     conn_string = settings.db_sources[query.db]
+    query_runner_class = SOURCES_TO_QUERY_RUNNER_TYPE[query.db]
+    query_runner: QueryRunner = query_runner_class(query_id=query.id)
+
     LOG.info(f'Run {query.id} using db {conn_string}')
-    async with await psycopg.AsyncConnection.connect(f'{conn_string}?application_name={db_app_name(query)}') as con:
-        async with con.cursor(f'server_cursor_{query.id}') as cursor:
-            await cursor.execute(query.query)
-
-            with msgpack_writer(write_to) as writer:
-                # first two rows name and types
-                writer.writerow([c.name for c in cursor.description])
-                writer.writerow([c._type_display() for c in cursor.description])
-
-                async for record in cursor:
-                    writer.writerow(record)
+    await query_runner.execute_to_file(query.query, write_to)
 
 
 def to_batches(size: int, iterable: typing.Iterable) -> typing.Iterable[typing.List[typing.Any]]:

@@ -25,7 +25,7 @@ from executor_service.mq import create_channel
 from executor_service.models.queries import QueryExecution, QueryStatus, QueryDestinationStatus
 from executor_service.fs import fs_client
 from executor_service.database import db_session
-from executor_service.services.query_runner import QueryRunner, PostgresRunner, ClickhouseRunner
+from executor_service.services.query_runner import QueryRunner, PostgresRunner, ClickHouseRunner
 
 
 LOG = logging.getLogger(__name__)
@@ -283,7 +283,7 @@ RESULTS_DEST_MAPPING = {
 
 SOURCES_TO_QUERY_RUNNER_TYPE = {
     'raw': PostgresRunner,
-    'clickhouse': ClickhouseRunner
+    'clickhouse': ClickHouseRunner
 }
 
 

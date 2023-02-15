@@ -99,7 +99,7 @@ class ClickHouseRunner(QueryRunner):
                 settings={'replace_running_query': 1, 'query_id': self.db_app_name}
             )
         except DatabaseError as db_err:
-            if "Code: 394" in str(db_err):
+            if "Code: 394" in str(db_err):  # if query was canceled
                 raise psycopg.errors.QueryCanceled()
             raise db_err
         finally:

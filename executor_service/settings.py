@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     db_connection_string: str = 'postgresql+asyncpg://postgres:dwh@db.lan:5432/executor'
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/executor'
     db_sources: dict = {
-        'raw': 'postgresql://postgres:dwh@db.lan:5432/dwh'
+        'raw': 'postgresql://postgres:dwh@db.lan:5432/dwh',
+        'clickhouse': 'clickhouse://clickhouse:dwh@clickhouse.lan:8123/dwh'
     }
     db_connection_string_results: str = 'postgresql://postgres:dwh@db.lan:5432/results'
     api_iam = 'http://iam.lan:8000'

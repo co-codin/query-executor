@@ -1,7 +1,6 @@
 # type: ignore[attr-defined]
-import os
-
 from executor_service.logger_config import config_logger
+from executor_service.settings import settings
 
 import uvicorn
 
@@ -9,13 +8,6 @@ import uvicorn
 config_logger()
 
 
-def main() -> None:
-
-    from executor_service.app import executor_app
-    app = executor_app
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-
 if __name__ == "__main__":
-    main()
+    uvicorn.run("executor_service.app:executor_app", host="0.0.0.0", port=settings.port, reload=settings.reload)
+

@@ -4,7 +4,6 @@ from pydantic import BaseSettings
 class Settings(BaseSettings):
     # Uvicorn constants
     port: int = 8000
-    reload: bool = True
 
     # Logging constants
     debug: bool = False

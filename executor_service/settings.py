@@ -2,7 +2,11 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Logging constants"""
+    # Uvicorn constants
+    port: int = 8000
+    reload: bool = True
+
+    # Logging constants
     debug: bool = False
 
     log_dir: str = "/var/log/n3dwh/"

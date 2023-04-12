@@ -18,6 +18,18 @@ build-query-executor:
   script:
     - /kaniko/executor --dockerfile=prod.dockerfile --context=dir://. --destination=$DOCKER_REPO/query-executor:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
 
+build-migrations:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  environment:
+    name: dev
+  before_script:
+    - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
+  script:
+    - /kaniko/executor --dockerfile=.ci/Dockerfile.migrations --context=dir://. --destination=$DOCKER_REPO/query-executor-migrations:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
+
 deploy:
     stage: deploy
     image:

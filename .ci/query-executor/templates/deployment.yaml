@@ -21,11 +21,9 @@ spec:
         {{- include "query-executor.selectorLabels" . | nindent 8 }}
     spec:
       initContainers:
-        - name: set-env-from-secret
+        - name: "{{ .Values.image.repository }}-migrations:{{ .Values.image.tag | default .Chart.AppVersion }}"
           image: busybox
-          command: [ 'sh', '-c', '--' ]
-          args:
-            - env | grep -E '^SECRET_' | while read line ; do export $line ; done
+          command: [ 'alembic', 'upgrade', 'head' ]
           env:
             - name: DWH_QUERY_EXECUTOR_DB_MIGRATION_CONNECTION_STRING
               valueFrom:

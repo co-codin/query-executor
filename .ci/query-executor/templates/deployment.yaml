@@ -21,7 +21,7 @@ spec:
         {{- include "query-executor.selectorLabels" . | nindent 8 }}
     spec:
       initContainers:
-        - name: "{{ .Values.image.repository }}-migrations"
+        - name: "{{ .Chart.Name }}-migrations"
           image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
           command: [ 'alembic', 'upgrade', 'head' ]
           env:

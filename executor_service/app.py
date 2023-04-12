@@ -9,7 +9,6 @@ from executor_service.endpoints import queries
 from executor_service.errors import APIError
 from executor_service.auth import load_jwks
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +56,17 @@ async def request_log(request: Request, call_next):
             content={"message": "Something went wrong!"},
         )
 
+
+@executor_app.get("/health")
+def health() -> JSONResponse:
+    """
+    Health check endpoint
+    :return: JSONResponse
+    """
+    return JSONResponse(
+        status_code=200,
+        content={"message": "health check successful"},
+    )
 
 @executor_app.exception_handler(APIError)
 def api_exception_handler(_request: Request, exc: APIError) -> JSONResponse:

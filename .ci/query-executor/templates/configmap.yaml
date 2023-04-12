@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "query-executor.fullname" . }}-configmap
+  labels:
+    {{- include "query-executor.labels" . | nindent 4 }}
+data:
+  dwh_query_executor_data_catalog_url: {{ .Values.configmap.data_catalog_url }}
+  dwh_query_executor_api_iam: {{ .Values.configmap.iam_url }}

@@ -42,15 +42,4 @@ deploy:
       - mkdir -p /root/.kube
       - echo $KUBE_CONFIG | base64 -d > /root/.kube/config
     script:
-        - helm upgrade --install -n smartdwh --set "secrets.db_connection_string=$DB_CONNECTION_STRING" \
-          --set "secrets.db_migration_connection_string=$DB_MIGRATION_CONNECTION_STRING" \
-          --set "secrets.db_sources_raw=$DB_SOURCES_RAW" \
-          --set "secrets.db_sources_clickhouse=$DB_SOURCES_CLICKHOUSE" \
-          --set "secrets.db_connection_string_results=$DB_CONNECTION_STRING_RESULTS" \
-          --set "secrets.minio_host=$MINIO_HOST" \
-          --set "secrets.minio_access_key=$MINIO_ACCESS_KEY" \
-          --set "secrets.minio_secret_key=$MINIO_SECRET_KEY" \
-          --set "secrets.minio_bucket_name=$MINIO_BUCKET_NAME" \
-          --set "secrets.mq_connection_string=$MQ_CONN_STRING" \
-          --set "image.tag=$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA" \
-          --set "image.repository=$DOCKER_REPO/query-executor" query-executor ./.ci/query-executor
+        - helm upgrade --install -n smartdwh --set "secrets.db_connection_string=$DB_CONNECTION_STRING" --set "secrets.db_migration_connection_string=$DB_MIGRATION_CONNECTION_STRING" --set "secrets.db_sources_raw=$DB_SOURCES_RAW" --set "secrets.db_sources_clickhouse=$DB_SOURCES_CLICKHOUSE" --set "secrets.db_connection_string_results=$DB_CONNECTION_STRING_RESULTS" --set "secrets.minio_host=$MINIO_HOST" --set "secrets.minio_access_key=$MINIO_ACCESS_KEY" --set "secrets.minio_secret_key=$MINIO_SECRET_KEY" --set "secrets.minio_bucket_name=$MINIO_BUCKET_NAME" --set "secrets.mq_connection_string=$MQ_CONN_STRING" --set "image.tag=$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA" --set "image.repository=$DOCKER_REPO/query-executor" query-executor ./.ci/query-executor

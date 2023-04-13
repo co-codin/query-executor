@@ -23,7 +23,7 @@ secrets:
   mq_connection_string: "" # must be b64 encoded
 
 configmap:
-  iam_url: "http://iam:8000"
+  iam_url: "http://iam-dev:8000"
 
 imagePullSecrets: []
 nameOverride: ""

@@ -6,7 +6,7 @@ stages:
 variables:
   DOCKER_REPO: repo.n3zdrav.ru:18444
 
-build-query-executor:
+build-image:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
@@ -16,30 +16,69 @@ build-query-executor:
   before_script:
     - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --dockerfile=prod.dockerfile --context=dir://. --destination=$DOCKER_REPO/query-executor:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
+    - /kaniko/executor --dockerfile=prod.dockerfile --context=dir://. --destination=$DOCKER_REPO/$CI_PROJECT_NAME:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
 
 build-migrations:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
-  environment:
-    name: dev
   before_script:
     - echo $REGCRED | base64 -d > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --dockerfile=.ci/Dockerfile.migrations --context=dir://. --destination=$DOCKER_REPO/query-executor-migrations:$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
+    - /kaniko/executor --dockerfile=.ci/Dockerfile.migrations --context=dir://. --destination=$DOCKER_REPO/$CI_PROJECT_NAME-migrations:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA --cache=true --cache-repo=$DOCKER_REPO/kaniko-cache --cache-dir=/cache
 
-deploy:
-    stage: deploy
-    image:
-        name: alpine/helm:3.11.2
-        entrypoint:
-          - ""
-    environment:
-        name: dev
-    before_script:
-      - mkdir -p /root/.kube
-      - echo $KUBE_CONFIG | base64 -d > /root/.kube/config
-    script:
-        - helm upgrade --install -n smartdwh --set "secrets.db_connection_string=$DB_CONNECTION_STRING" --set "secrets.db_migration_connection_string=$DB_MIGRATION_CONNECTION_STRING" --set "secrets.db_sources_raw=$DB_SOURCES_RAW" --set "secrets.db_sources_clickhouse=$DB_SOURCES_CLICKHOUSE" --set "secrets.db_connection_string_results=$DB_CONNECTION_STRING_RESULTS" --set "secrets.minio_host=$MINIO_HOST" --set "secrets.minio_access_key=$MINIO_ACCESS_KEY" --set "secrets.minio_secret_key=$MINIO_SECRET_KEY" --set "secrets.minio_bucket_name=$MINIO_BUCKET_NAME" --set "secrets.mq_connection_string=$MQ_CONN_STRING" --set "image.tag=$CI_ENVIRONMENT_SLUG-$CI_COMMIT_SHORT_SHA" --set "image.repository=$DOCKER_REPO/query-executor" query-executor ./.ci/query-executor
+.deploy:
+  stage: deploy
+  image:
+    name: alpine/helm:3.11.2
+    entrypoint:
+      - ""
+  before_script:
+    - mkdir -p /root/.kube
+    - echo $KUBE_CONFIG | base64 -d > /root/.kube/config
+  script:
+    - apk add yq
+    - export SITE_URL=$(echo -n $CI_ENVIRONMENT_URL | awk -F/ '{gsub(/^https:\/\//, ""); print $1}')
+    - path_value=$(printf '/%s(/|$)(.*)' "$CI_PROJECT_NAME")
+    - yq eval ".ingress.hosts[0].host = env(SITE_URL) | .ingress.tls[0].hosts[0] = env(SITE_URL) | .ingress.hosts[0].paths[0].path = \"${path_value}\"" .ci/$CI_PROJECT_NAME/values.yaml > .ci/$CI_PROJECT_NAME/updated-values.yaml
+    - >
+      helm upgrade --atomic --install -n smartdwh --timeout 5m 
+      --set-string secrets.db_connection_string="$DB_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" 
+      --set-string secrets.db_migration_connection_string="$DB_MIGRATION_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.db_sources_raw="$DB_CONNECTION_STRING/dwh-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.db_sources_clickhouse="$CLICKHOUSE_CONNECTION/dwh-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.mq_connection_string="$MQ_CONN_STRING" 
+      --set-string configmap.iam_url="http://iam-$CI_ENVIRONMENT_NAME:8000" 
+      --set-string configmap.exchange_execute="query_execute_$CI_ENVIRONMENT_NAME"
+      --set image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA 
+      --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
+      $CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME ./.ci/$CI_PROJECT_NAME -f .ci/$CI_PROJECT_NAME/updated-values.yaml
+
+
+deploy-refactor-ci:
+  extends: .deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "refactor-ci" && $CI_PIPELINE_SOURCE != "schedule"
+    - when: never
+  environment:
+    name: refactor-ci
+    url: https://$CI_COMMIT_REF_SLUG.smartdwh.k8s.bi.n3zdrav.ru
+
+deploy-dev:
+  extends: .deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE != "schedule"
+    - when: never
+  environment:
+    name: dev
+    url: https://dev.smartdwh.k8s.bi.n3zdrav.ru
+
+deploy-test:
+  extends: .deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE != "schedule"
+    - when: never
+  environment:
+    name: test
+    url: https://test.smartdwh.k8s.bi.n3zdrav.ru

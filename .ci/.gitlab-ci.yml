@@ -43,7 +43,7 @@ build-migrations:
     - path_value=$(printf '/%s(/|$)(.*)' "$CI_PROJECT_NAME")
     - yq eval ".ingress.hosts[0].host = env(SITE_URL) | .ingress.tls[0].hosts[0] = env(SITE_URL) | .ingress.hosts[0].paths[0].path = \"${path_value}\"" .ci/$CI_PROJECT_NAME/values.yaml > .ci/$CI_PROJECT_NAME/updated-values.yaml
     - >
-      helm upgrade --atomic --install -n smartdwh --timeout 5m 
+      helm upgrade --atomic --install -n smartdwh --timeout 1m 
       --set-string secrets.db_connection_string="$DB_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" 
       --set-string secrets.db_migration_connection_string="$DB_MIGRATION_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME"
       --set-string secrets.db_sources_raw="$DB_CONNECTION_STRING/dwh-$CI_ENVIRONMENT_NAME"

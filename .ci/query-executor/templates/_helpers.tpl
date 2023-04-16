@@ -31,6 +31,20 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Extract environment from release name with fallback
+*/}}
+{{- define "chart.environment" -}}
+{{- $parts := split "-" .Release.Name -}}
+{{- if gt (len $parts) 2 -}}
+  {{- $lastIndex := sub (len $parts) 1 -}}
+  {{- $env := index $parts (printf "%d" $lastIndex) -}}
+  {{- printf "%s" $env -}}
+{{- else -}}
+  {{- printf "unknown" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "query-executor.labels" -}}
@@ -39,6 +53,7 @@ helm.sh/chart: {{ include "query-executor.chart" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
+environment: {{ include "chart.environment" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 

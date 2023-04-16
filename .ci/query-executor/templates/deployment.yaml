@@ -23,7 +23,6 @@ spec:
       initContainers:
         - name: "{{ .Chart.Name }}-migrations"
           image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
-          command: [ 'alembic', 'upgrade', 'head' ]
           env:
             - name: DWH_QUERY_EXECUTOR_DB_MIGRATION_CONNECTION_STRING
               valueFrom:
@@ -44,6 +43,29 @@ spec:
                 name: {{ include "query-executor.fullname" . }}-secret
             - configMapRef:
                 name: {{ include "query-executor.fullname" . }}-configmap
+          {{- if eq .Values.storageS3.storageClassName "ceph-bucket" }}
+          env:
+            - name: DWH_QUERY_EXECUTOR_MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-bucket
+                  key: AWS_ACCESS_KEY_ID
+            - name: DWH_QUERY_EXECUTOR_MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-bucket
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: DWH_QUERY_EXECUTOR_MINIO_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-bucket
+                  key: BUCKET_NAME
+            - name: DWH_QUERY_EXECUTOR_MINIO_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-bucket
+                  key: BUCKET_HOST
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"

@@ -5,5 +5,6 @@ metadata:
   labels:
     {{- include "query-executor.labels" . | nindent 4 }}
 data:
-  dwh_query_executor_data_catalog_url: {{ .Values.configmap.data_catalog_url }}
-  dwh_query_executor_api_iam: {{ .Values.configmap.iam_url }}
+  {{- range $key, $value := .Values.configmap }}
+  dwh_query_executor_{{ $key }}: {{ $value | quote }}
+  {{- end }}

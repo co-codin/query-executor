@@ -10,6 +10,8 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+ciEnv: ""
+
 secrets:
   db_connection_string: ""
   db_migration_connection_string: ""

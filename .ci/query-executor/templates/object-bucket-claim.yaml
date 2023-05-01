@@ -5,6 +5,9 @@ metadata:
   name: {{ include "query-executor.fullname" . }}-bucket
   labels:
     {{- include "query-executor.labels" . | nindent 4 }}
+    {{- if ne .Values.ciEnv "" }}
+    environment: {{ .Values.ciEnv }}
+    {{- end }}
 spec:
   generateBucketName: {{ .Release.Name }}-bkt
   storageClassName: ceph-bucket

@@ -119,18 +119,12 @@ async def delete_result(guid: str, session = Depends(db_session), user = Depends
 
     if available_to_user(result, user):
         await session.execute(
-            delete(QueryDestination)
-            .where(QueryDestination.query_id == query.id)
-        )
-        await session.execute(
-            delete(QueryExecution)
-            .where(QueryExecution.id == query.id)
-        )
-        await session.commit()
-    else:
-        await session.execute(
             delete(QueryExecution)
             .where(QueryExecution.id == query.id)
             .where(QueryExecution.identity_id == user['identity_id'])
         )
-        await session.commit()
+    else:
+        # удалить из списка текущего пользователя
+        pass
+    
+    await session.commit()

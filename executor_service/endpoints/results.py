@@ -1,14 +1,11 @@
 # type: ignore[no-untyped-def]
-import asyncio
-from typing import Dict, List, Union
+from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
-
-from executor_service.schemas.queries import QueryIn
-from executor_service.services.executor import execute_query, get_query_result, terminate_query
+import pandas as pd
 from executor_service.dependencies import db_session, get_user
-from executor_service.models.queries import QueryExecution, QueryDestination
+from executor_service.models.queries import QueryDestination
 
 
 router = APIRouter(
@@ -40,6 +37,24 @@ async def get_result(guid: str, session = Depends(db_session), user = Depends(ge
 
 
 
-@router.get('/{guid}/download', response_model=Dict)
+@router.get('/{guid}/download')
 async def download_result(guid: str, session = Depends(db_session), user = Depends(get_user)):
-    pass
+    result = await session.execute(
+        select(QueryDestination)
+        .filter(QueryDestination.guid == guid)
+    )
+    result = result.scalars().first()
+    if result is None:
+        raise HTTPException(status_code=404)
+
+    if not available_to_user(result, user):
+        raise HTTPException(status_code=401)
+
+    df = pd.DataFrame(result)
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+
+    response = StreamingResponse(
+        iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=export.csv"
+    return response

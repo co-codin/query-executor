@@ -105,3 +105,32 @@ async def get_result(query_id: int,
 async def terminate(query_id: int):
     await terminate_query(query_id)
     return {}
+
+
+@router.delete('/{guid}/delete_by_guid')
+async def delete_result(guid: str, session = Depends(db_session), user = Depends(get_user)):
+    query = await session.execute(
+        select(QueryExecution)
+        .filter(QueryExecution.guid == guid)
+    )
+    query = query.scalars().first()
+    if query is None:
+        raise HTTPException(status_code=404)
+
+    if available_to_user(result, user):
+        await session.execute(
+            delete(QueryDestination)
+            .where(QueryDestination.query_id == query.id)
+        )
+        await session.execute(
+            delete(QueryExecution)
+            .where(QueryExecution.id == query.id)
+        )
+        await session.commit()
+    else:
+        await session.execute(
+            delete(QueryExecution)
+            .where(QueryExecution.id == query.id)
+            .where(QueryExecution.identity_id == user['identity_id'])
+        )
+        await session.commit()

@@ -36,6 +36,28 @@ async def get_result(guid: str, session = Depends(db_session), user = Depends(ge
     return result
 
 
+@router.delete('/{guid}')
+async def delete_result(guid: str, session = Depends(db_session), user = Depends(get_user)):
+    query = await session.execute(
+        select(QueryExecution)
+        .filter(QueryExecution.guid == guid)
+    )
+    query = query.scalars().first()
+    if query is None:
+        raise HTTPException(status_code=404)
+
+    if available_to_user(result, user):
+        await session.execute(
+            delete(QueryExecution)
+            .where(QueryExecution.id == query.id)
+            .where(QueryExecution.identity_id == user['identity_id'])
+        )
+    else:
+        # удалить из списка текущего пользователя
+        pass
+
+    await session.commit()
+
 
 @router.get('/{guid}/download')
 async def download_result(guid: str, session = Depends(db_session), user = Depends(get_user)):

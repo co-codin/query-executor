@@ -14,3 +14,4 @@ pyjwt == 2.6.0
 cryptography==38.0.3
 clickhouse-connect==0.5.10
 numpy==1.24.2
+pandas==1.5.3

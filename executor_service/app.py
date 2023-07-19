@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-from executor_service.endpoints import queries
+from executor_service.endpoints import queries, results
 from executor_service.errors import APIError
 from executor_service.auth import load_jwks
 
@@ -26,7 +26,7 @@ executor_app = create_app()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 executor_app.include_router(queries.router, prefix="/v1")
-
+executor_app.include_router(results.router, prefix="/v1")
 
 @executor_app.on_event('startup')
 async def on_startup():

@@ -1,9 +1,9 @@
 import io
 
 import msgpack
-import typing
 from datetime import datetime, timezone
 from contextlib import contextmanager
+from typing import BinaryIO, Any
 
 
 __all__ = [
@@ -20,17 +20,18 @@ def handle_datetime(value):
 
 class PickleIO:
     LEN_SIZE = 8
-    def __init__(self, fd: typing.BinaryIO):
+
+    def __init__(self, fd: BinaryIO):
         self._fd = fd
 
 
 class MsgpackWriter(PickleIO):
-    def writerow(self, row: typing.Any):
+    def writerow(self, row: Any):
         data = msgpack.packb(row, default=handle_datetime, datetime=True)
         self._fd.write(len(data).to_bytes(self.LEN_SIZE, byteorder='big'))
         self._fd.write(data)
 
-    def writerows(self, rows: typing.List[typing.Any]):
+    def writerows(self, rows: list[Any]):
         for row in rows:
             self.writerow(row)
 
@@ -47,7 +48,7 @@ class MsgpackReader(PickleIO):
         except self.Eof:
             pass
 
-    def readrow(self) -> typing.Any:
+    def readrow(self) -> Any:
         length = self._fd.read(self.LEN_SIZE)
         if not length:
             raise self.Eof()

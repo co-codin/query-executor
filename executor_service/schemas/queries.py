@@ -1,4 +1,3 @@
-from typing import Dict, List
 from enum import Enum
 from pydantic import BaseModel
 
@@ -10,10 +9,11 @@ class DestinationType(Enum):
 
 class QueryIn(BaseModel):
     guid: str
+    run_guid: str
     query: str
-    db: str
-    result_destinations: List[DestinationType]
+    result_destinations: list[DestinationType]
     identity_id: str
+    conn_string: str
 
 
 class QueryResultIn(BaseModel):
@@ -23,5 +23,4 @@ class QueryResultIn(BaseModel):
 
 class QueryOut(BaseModel):
     pid_info: str
-    result: List[Dict]
-
+    result: list[dict]

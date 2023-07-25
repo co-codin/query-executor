@@ -1,28 +1,28 @@
-import logging
 import asyncio
 import pika
+
 from contextlib import asynccontextmanager
+
+from pika.channel import Channel
 from pika.adapters.asyncio_connection import AsyncioConnection
 
 from executor_service.settings import settings
 
 
-LOG = logging.getLogger(__name__)
-PIKA_CONNECTION = None
-
-
 class PikaChannel:
-    def __init__(self, channel):
-        self._channel = channel
+    conn: AsyncioConnection | None = None
 
-    async def basic_publish(self, exchange: str, routing_key: str, body: str):
+    def __init__(self, channel: Channel):
+        self._channel = channel
+        self._close_callbacks = []
+
+    async def basic_publish(self, exchange: str, routing_key: str, body: bytes):
         self._channel.basic_publish(exchange, routing_key, body)
 
 
 async def create_connection():
-    global PIKA_CONNECTION
-    if PIKA_CONNECTION:
-        return PIKA_CONNECTION
+    if PikaChannel.conn:
+        return PikaChannel.conn
 
     loop = asyncio.get_running_loop()
 
@@ -34,8 +34,8 @@ async def create_connection():
         on_close_callback=lambda c, exc: fut.set_exception(exc)
     )
     conn = await fut
-    PIKA_CONNECTION = conn
-    return conn
+    PikaChannel.conn = conn
+    return PikaChannel.conn
 
 
 @asynccontextmanager
@@ -50,4 +50,6 @@ async def create_channel() -> PikaChannel:
     try:
         yield PikaChannel(channel)
     finally:
-        channel.close()
+        PikaChannel.conn = None
+        if channel.is_open:
+            channel.close()

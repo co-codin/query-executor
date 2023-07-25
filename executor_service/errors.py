@@ -1,7 +1,9 @@
-import typing
+from fastapi import status
 
 
 class APIError(Exception):
+    status_code: int = status.HTTP_400_BAD_REQUEST
+
     def __init__(self, message: str = None):
         super().__init__(message)
         if message:
@@ -11,7 +13,7 @@ class APIError(Exception):
 class QueryError(APIError):
     message: str = 'Error'
 
-    def __init__(self, *, query_id: typing.Optional[int] = None, query_guid: typing.Optional[int] = None):
+    def __init__(self, *, query_id: int | None = None, query_guid: int | None = None):
         self.query_id = query_id
         self.query_guid = query_guid
         super().__init__(f'Query {query_id or query_guid}. {self.__class__.message}')

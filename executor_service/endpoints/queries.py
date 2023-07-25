@@ -1,15 +1,17 @@
 # type: ignore[no-untyped-def]
 import asyncio
-from typing import Dict, List, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from executor_service.schemas.queries import QueryIn
-from executor_service.services.executor import execute_query, get_query_result, terminate_query
+from executor_service.services.executor import execute_query, get_query_result, terminate_query, send_notification
 from executor_service.dependencies import db_session, get_user
 from executor_service.models.queries import QueryExecution, QueryDestination
+from executor_service.services.crypto import encrypt
+from executor_service.settings import settings
 
 
 router = APIRouter(
@@ -28,12 +30,12 @@ def available_to_user(query: QueryExecution, user: dict):
     return query.identity_id == user['identity_id']
 
 
-@router.post("/", response_model=Union[List[Dict], Dict])
-async def execute(query_data: QueryIn, session = Depends(db_session)):
+@router.post("/", response_model=dict[str, int | str])
+async def execute(query_data: QueryIn, session=Depends(db_session)):
     query = QueryExecution(
-        guid=query_data.guid,
+        guid=query_data.run_guid,
         query=query_data.query,
-        db=query_data.db,
+        db=encrypt(settings.encryption_key, query_data.conn_string),
         identity_id=query_data.identity_id,
     )
     session.add(query)
@@ -43,17 +45,19 @@ async def execute(query_data: QueryIn, session = Depends(db_session)):
         query.results.append(dest)
     await session.commit()
 
-    asyncio.create_task(execute_query(query.id))
+    asyncio.create_task(execute_query(query.id, query_data.conn_string))
     return {
         'id': query.id,
         'guid': query.guid,
     }
 
 
-@router.get("/{query_id}", response_model=Dict)
-async def get_query(query_id: int, session = Depends(db_session), user = Depends(get_user)):
+@router.get("/{query_guid}", response_model=dict)
+async def get_query(query_guid: str, session=Depends(db_session), user=Depends(get_user)):
     query = await session.execute(
-        select(QueryExecution).options(selectinload(QueryExecution.results)).where(QueryExecution.id == query_id)
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid == query_guid)
     )
     query = query.scalars().first()
     if query is None:
@@ -71,18 +75,22 @@ async def get_query(query_id: int, session = Depends(db_session), user = Depends
             'error': dest.error_description,
             'path': dest.path,
             'creds': dest.access_creds,
-        } for dest in query.results],
+        }
+            for dest in query.results
+        ],
     }
 
 
-@router.get("/{query_id}/results", response_model=List[Dict])
-async def get_result(query_id: int,
-                     limit: int = Query(default=None, gt=0, lt=MAX_LIMIT),
-                     offset: int = Query(default=None, ge=0),
-                     session = Depends(db_session),
-                     user = Depends(get_user)):
+@router.get("/{query_guid}/results", response_model=list[dict])
+async def get_result(query_guid: str,
+                     limit: int = Query(default=MAX_LIMIT, gt=0, lt=MAX_LIMIT),
+                     offset: int = Query(default=0, ge=0),
+                     session=Depends(db_session),
+                     user=Depends(get_user)):
     query = await session.execute(
-        select(QueryExecution).options(selectinload(QueryExecution.results)).where(QueryExecution.id == query_id)
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid == query_guid)
     )
     query = query.scalars().first()
     if query is None:
@@ -101,7 +109,8 @@ async def get_result(query_id: int,
     return rows
 
 
-@router.delete("/{query_id}")
-async def terminate(query_id: int):
-    await terminate_query(query_id)
-    return {}
+@router.delete("/{query_guid}")
+async def terminate(query_guid: str):
+    query = await terminate_query(query_guid)
+    await send_notification(query)
+

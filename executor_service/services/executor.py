@@ -5,16 +5,18 @@ import json
 import logging
 import secrets
 import string
-import typing
+import psycopg
+
 from datetime import datetime
 from itertools import zip_longest
 from tempfile import TemporaryDirectory
-from typing import Dict, List
+from typing import Iterable, Any
 
-import psycopg
 from psycopg import sql as sql_builder
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
+from fastapi import HTTPException, status
 
 from executor_service.settings import settings
 
@@ -25,7 +27,8 @@ from executor_service.mq import create_channel
 from executor_service.models.queries import QueryExecution, QueryStatus, QueryDestinationStatus
 from executor_service.fs import fs_client
 from executor_service.database import db_session
-from executor_service.services.query_runner import QueryRunner, PostgresRunner, ClickHouseRunner
+from executor_service.services.query_runner import QueryRunnerFactory
+from executor_service.services.crypto import decrypt
 
 
 LOG = logging.getLogger(__name__)
@@ -39,7 +42,7 @@ def _generate_random_string(strength: int):
     return ''.join(secrets.choice(CREDENTIALS_SYMBOLS) for _ in range(strength))
 
 
-async def get_query_result(db_table: str, limit: int, offset: int) -> List[Dict]:
+async def get_query_result(db_table: str, limit: int, offset: int) -> list[dict]:
     sql = sql_builder.SQL('SELECT * FROM {} ORDER BY {} LIMIT %s OFFSET %s').format(
         sql_builder.Identifier(db_table),
         sql_builder.Identifier(ORDER_KEY)
@@ -58,7 +61,7 @@ async def get_query_result(db_table: str, limit: int, offset: int) -> List[Dict]
     return result
 
 
-async def _get_query(session: AsyncSession, query_id: int) -> QueryExecution:
+async def _get_query_by_id(session: AsyncSession, query_id: int) -> QueryExecution:
     query = await session.execute(
         select(QueryExecution)
             .options(selectinload(QueryExecution.results))
@@ -69,14 +72,27 @@ async def _get_query(session: AsyncSession, query_id: int) -> QueryExecution:
     return query
 
 
-async def terminate_query(query_id: int):
-    async with db_session() as session:
-        query = await _get_query(session, query_id)
-        if query.status != QueryStatus.RUNNING.value:
-            raise QueryNotRunning(query_id=query_id)
+async def _get_query_by_guid(query_guid: str, session: AsyncSession) -> QueryExecution:
+    query = await session.execute(
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid == query_guid))
+    query = query.scalars().first()
+    if not query:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return query
 
-        query_runner_class = SOURCES_TO_QUERY_RUNNER_TYPE[query.db]
-        query_runner: QueryRunner = query_runner_class(query_id=query.id)
+
+async def terminate_query(query_guid: str):
+    async with db_session() as session:
+        query = await _get_query_by_guid(query_guid, session)
+        if query.status != QueryStatus.RUNNING.value:
+            raise QueryNotRunning(query_id=query.id)
+
+        query_runner = QueryRunnerFactory.build(
+            query_id=query.id,
+            conn_string=decrypt(settings.encryption_key, query.db)
+        )
 
         # в том случае, если процесс выполнения запроса работает,
         # его отмена из другого выдаст ошибку в первом
@@ -90,22 +106,24 @@ async def terminate_query(query_id: int):
         await query_runner.cancel(query_guid=query.guid)
         query.status = QueryStatus.CANCELLED.value
         await session.commit()
+        return query
 
 
-async def execute_query(query_id: int):
+async def execute_query(query_id: int, conn_string: str):
     """
     Выполняет запрос и загружает его результаты
     :param query_id: Идентификатор запроса
+    :param conn_string: Строка подключения к базе данных
     """
     try:
-        await _execute_query(query_id)
+        await _execute_query(query_id, conn_string)
     except Exception as e:
         LOG.exception(f'Failed to execute run {query_id}: {repr(e)}')
 
 
-async def _execute_query(query_id: int):
+async def _execute_query(query_id: int, conn_string: str):
     async with db_session() as session:
-        query = await _get_query(session, query_id)
+        query = await _get_query_by_id(session, query_id)
         query.status = QueryStatus.RUNNING.value
         await session.commit()
 
@@ -113,7 +131,7 @@ async def _execute_query(query_id: int):
             data_path = os.path.join(temp_dir, f'{query.guid}.bin')
 
             try:
-                await _execute_sql_to_file(query, write_to=data_path)
+                await _execute_sql_to_file(query, conn_string, write_to=data_path)
             except psycopg.errors.QueryCanceled:
                 await session.refresh(query, with_for_update=True)
                 if query.status == QueryStatus.CANCELLED.value:
@@ -281,22 +299,15 @@ RESULTS_DEST_MAPPING = {
     'file': _load_into_file,
 }
 
-SOURCES_TO_QUERY_RUNNER_TYPE = {
-    'raw': PostgresRunner,
-    'clickhouse': ClickHouseRunner
-}
 
-
-async def _execute_sql_to_file(query, write_to):
-    conn_string = settings.db_sources[query.db]
-    query_runner_class = SOURCES_TO_QUERY_RUNNER_TYPE[query.db]
-    query_runner: QueryRunner = query_runner_class(query_id=query.id)
+async def _execute_sql_to_file(query, conn_string: str, write_to):
+    query_runner = QueryRunnerFactory.build(query_id=query.id, conn_string=conn_string)
 
     LOG.info(f'Run {query.id} using db {conn_string}')
     await query_runner.execute_to_file(query.query, write_to)
 
 
-def to_batches(size: int, iterable: typing.Iterable) -> typing.Iterable[typing.List[typing.Any]]:
+def to_batches(size: int, iterable: Iterable) -> Iterable[list[Any]]:
     batch_records = []
     for record in iterable:
         batch_records.append(record)

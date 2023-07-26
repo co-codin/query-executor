@@ -19,10 +19,6 @@ class Settings(BaseSettings):
 
     db_connection_string: str = 'postgresql+asyncpg://postgres:dwh@db.lan:5432/executor'
     db_migration_connection_string: str = 'postgresql+psycopg2://postgres:dwh@db.lan:5432/executor'
-    db_sources: dict = {
-        'raw': os.environ.get('dwh_query_executor_db_sources_raw', 'postgresql://postgres:dwh@db.lan:5432/dwh'),
-        'clickhouse': os.environ.get('dwh_query_executor_db_sources_clickhouse', 'clickhouse://clickhouse:dwh@clickhouse.lan:8123/dwh')
-    }
     db_connection_string_results: str = 'postgresql://postgres:dwh@db.lan:5432/results'
     api_iam = 'http://iam.lan:8000'
 
@@ -35,6 +31,7 @@ class Settings(BaseSettings):
     exchange_execute = 'query_execute'
 
     thread_pool_size = 100
+    encryption_key: str = '154de72125d4c917bd0764f09bc6af6265b28cd11da2efb659151ac02c7ca0d3'
 
     class Config:
         env_prefix = "dwh_query_executor_"

@@ -16,8 +16,9 @@ LOG = logging.getLogger(__name__)
 
 class QueryRunner(ABC):
     @abstractmethod
-    def __init__(self, query_id: int):
+    def __init__(self, query_id: int, conn_string: str):
         self._query_id = query_id
+        self._conn_string = conn_string
 
     @property
     def db_app_name(self):
@@ -43,9 +44,8 @@ class QueryRunner(ABC):
 
 
 class PostgresRunner(QueryRunner):
-    def __init__(self, query_id: int):
-        super().__init__(query_id)
-        self._conn_string = settings.db_sources['raw']
+    def __init__(self, query_id: int, conn_string: str):
+        super().__init__(query_id, conn_string)
 
     async def execute_to_file(self, query: str, write_to: str):
         async with await psycopg.AsyncConnection.connect(f'{self._conn_string}?application_name={self.db_app_name}') as conn:
@@ -75,9 +75,8 @@ class PostgresRunner(QueryRunner):
 
 
 class ClickHouseRunner(QueryRunner):
-    def __init__(self, query_id: int):
-        super().__init__(query_id)
-        self._conn_string = settings.db_sources['clickhouse']
+    def __init__(self, query_id: int, conn_string: str):
+        super().__init__(query_id, conn_string)
 
     @staticmethod
     async def _row_gen(rows):
@@ -132,3 +131,16 @@ class ClickHouseRunner(QueryRunner):
             )
         finally:
             client.close()
+
+
+class QueryRunnerFactory:
+    _SOURCES_TO_QUERY_RUNNER_TYPE = {
+        'postgresql': PostgresRunner,
+        'clickhouse': ClickHouseRunner
+    }
+
+    @classmethod
+    def build(cls, query_id: int, conn_string: str) -> QueryRunner:
+        driver = conn_string.split('://', maxsplit=1)[0]
+        query_runner_class = cls._SOURCES_TO_QUERY_RUNNER_TYPE[driver]
+        return query_runner_class(query_id=query_id, conn_string=conn_string)

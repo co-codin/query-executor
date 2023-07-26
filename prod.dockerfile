@@ -1,12 +1,10 @@
 FROM python:3.10
 
-RUN pip install --no-cache-dir -U pip
+WORKDIR /app
 
 COPY requirements.txt requirements.dev.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.dev.txt
 
-RUN pip install -r /tmp/requirements.dev.txt
-
-EXPOSE 8000
-
-WORKDIR /app
+COPY executor_service ./executor_service/
 CMD ["python", "-m", "executor_service"]
+

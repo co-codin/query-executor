@@ -13,6 +13,7 @@ image:
 ciEnv: ""
 
 secrets:
+  encryption_key: ""
   db_connection_string: ""
   db_migration_connection_string: ""
   db_sources_raw: ""

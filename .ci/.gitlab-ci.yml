@@ -56,6 +56,7 @@ deploy:
     - >
       helm upgrade --atomic --install -n smartdwh --timeout 1m 
       --set-string ciEnv="$CI_ENVIRONMENT_NAME" 
+      --set-string secrets.encryption_key="$DWH_TASK_BROKER_ENCRYPTION_KEY_STRING"
       --set-string secrets.db_connection_string="$DB_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" 
       --set-string secrets.db_migration_connection_string="$DB_MIGRATION_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME"
       --set-string secrets.db_sources_raw="$DB_CONNECTION_STRING/dwh-$CI_ENVIRONMENT_NAME"

@@ -1,10 +1,14 @@
 # type: ignore[no-untyped-def]
 import asyncio
+import io
+import pandas as pd
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from executor_service.schemas.queries import QueryIn
 from executor_service.services.executor import execute_query, get_query_result, terminate_query, send_notification
@@ -30,6 +34,34 @@ def available_to_user(query: QueryExecution, user: dict):
     return query.identity_id == user['identity_id']
 
 
+async def select_query_exec(guid: str, user: dict, session: AsyncSession) -> QueryExecution:
+    query = await session.execute(
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid == guid)
+    )
+    query = query.scalars().first()
+    if query is None:
+        raise HTTPException(status_code=404)
+
+    if not available_to_user(query, user):
+        raise HTTPException(status_code=401)
+    return query
+
+
+async def select_query_result(guid: str, limit: int, offset: int, user: dict, session: AsyncSession) -> list[dict]:
+    query = await select_query_exec(guid, user, session)
+
+    results = {
+        dest.dest_type: dest for dest in query.results
+    }
+    if 'table' not in results:
+        raise HTTPException(status_code=422, detail='Query does not have results stored in table')
+
+    rows = await get_query_result(results['table'].path, limit, offset)
+    return rows
+
+
 @router.post("/", response_model=dict[str, int | str])
 async def execute(query_data: QueryIn, session=Depends(db_session)):
     query = QueryExecution(
@@ -52,12 +84,18 @@ async def execute(query_data: QueryIn, session=Depends(db_session)):
     }
 
 
-@router.get("/{query_guid}", response_model=dict)
-async def get_query(query_guid: str, session=Depends(db_session), user=Depends(get_user)):
+@router.delete("/{guid}")
+async def terminate(guid: str):
+    query = await terminate_query(guid)
+    await send_notification(query)
+
+
+@router.get("/{guid}", response_model=dict)
+async def get_query(guid: str, session=Depends(db_session), user=Depends(get_user)):
     query = await session.execute(
         select(QueryExecution)
         .options(selectinload(QueryExecution.results))
-        .where(QueryExecution.guid == query_guid)
+        .where(QueryExecution.guid == guid)
     )
     query = query.scalars().first()
     if query is None:
@@ -81,36 +119,29 @@ async def get_query(query_guid: str, session=Depends(db_session), user=Depends(g
     }
 
 
-@router.get("/{query_guid}/results", response_model=list[dict])
-async def get_result(query_guid: str,
-                     limit: int = Query(default=MAX_LIMIT, gt=0, lt=MAX_LIMIT),
+@router.get("/{guid}/results", response_model=list[dict])
+async def get_result(guid: str,
+                     limit: int = Query(default=MAX_LIMIT-1, gt=0, lt=MAX_LIMIT),
                      offset: int = Query(default=0, ge=0),
                      session=Depends(db_session),
                      user=Depends(get_user)):
-    query = await session.execute(
-        select(QueryExecution)
-        .options(selectinload(QueryExecution.results))
-        .where(QueryExecution.guid == query_guid)
+    return await select_query_result(guid, limit, offset, user, session)
+
+
+@router.get('/{guid}/download')
+async def download_result(guid: str, session=Depends(db_session), user=Depends(get_user)):
+    rows = await select_query_result(guid, MAX_LIMIT-1, 0, user, session)
+
+    df = pd.DataFrame(rows)
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+
+    response = StreamingResponse(
+        iter([stream.getvalue()]),
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename=result.csv',
+            'Access-Control-Expose-Headers': 'Content-Disposition'
+        }
     )
-    query = query.scalars().first()
-    if query is None:
-        raise HTTPException(status_code=404)
-
-    if not available_to_user(query, user):
-        raise HTTPException(status_code=401)
-
-    results = {
-        dest.dest_type: dest for dest in query.results
-    }
-    if 'table' not in results:
-        raise HTTPException(status_code=422, detail='Query does not have results stored in table')
-
-    rows = await get_query_result(results['table'].path, limit, offset)
-    return rows
-
-
-@router.delete("/{query_guid}")
-async def terminate(query_guid: str):
-    query = await terminate_query(query_guid)
-    await send_notification(query)
-
+    return response

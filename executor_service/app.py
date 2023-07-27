@@ -25,8 +25,8 @@ def create_app() -> FastAPI:
 executor_app = create_app()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-executor_app.include_router(queries.router, prefix="/v1")
-executor_app.include_router(keys.router, prefix="/v1")
+executor_app.include_router(queries.router, prefix='/v1')
+executor_app.include_router(keys.router, prefix='/v1')
 
 
 @executor_app.on_event('startup')
@@ -68,6 +68,7 @@ def health() -> JSONResponse:
         status_code=200,
         content={"message": "health check successful"},
     )
+
 
 @executor_app.exception_handler(APIError)
 def api_exception_handler(_request: Request, exc: APIError) -> JSONResponse:

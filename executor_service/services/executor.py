@@ -64,8 +64,8 @@ async def get_query_result(db_table: str, limit: int, offset: int) -> list[dict]
 async def _get_query_by_id(session: AsyncSession, query_id: int) -> QueryExecution:
     query = await session.execute(
         select(QueryExecution)
-            .options(selectinload(QueryExecution.results))
-            .where(QueryExecution.id == query_id))
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.id == query_id))
     query = query.scalars().first()
     if not query:
         raise QueryNotFoundError(query_id=query_id)

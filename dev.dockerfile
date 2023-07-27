@@ -1,10 +1,10 @@
 FROM python:3.10
 
-RUN pip install --no-cache-dir -U pip
+WORKDIR /tmp
+COPY requirements.txt requirements.dev.txt ./
 
-COPY requirements.txt requirements.dev.txt /tmp/
-
-RUN pip install -r /tmp/requirements.dev.txt
+RUN pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt
 
 EXPOSE 8000
 

@@ -61,6 +61,15 @@ async def get_query_result(db_table: str, limit: int, offset: int) -> list[dict]
     return result
 
 
+async def delete_query_execs(db_tables: list[str]) -> None:
+    tables = sql_builder.SQL(', ').join(map(sql_builder.Identifier, db_tables))
+    drop_tables_sql = sql_builder.SQL('DROP TABLE IF EXISTS {}').format(tables)
+
+    async with await psycopg.AsyncConnection.connect(settings.db_connection_string_results) as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(drop_tables_sql)
+
+
 async def _get_query_by_id(session: AsyncSession, query_id: int) -> QueryExecution:
     query = await session.execute(
         select(QueryExecution)

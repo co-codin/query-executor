@@ -24,3 +24,7 @@ class QueryResultIn(BaseModel):
 class QueryOut(BaseModel):
     pid_info: str
     result: list[dict]
+
+
+class QueryDeleteIn(BaseModel):
+    guids: list[str] = []

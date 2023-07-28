@@ -20,6 +20,7 @@ class QueryDestinationStatus(Enum):
     DECLARED = 'declared'
     UPLOADED = 'uploaded'
     ERROR = 'error'
+    DELETED = 'deleted'
 
 
 class QueryExecution(Base):

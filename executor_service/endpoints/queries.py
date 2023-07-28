@@ -6,14 +6,16 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from executor_service.schemas.queries import QueryIn
-from executor_service.services.executor import execute_query, get_query_result, terminate_query, send_notification
+from executor_service.schemas.queries import QueryIn, QueryDeleteIn
+from executor_service.services.executor import (
+    execute_query, get_query_result, terminate_query, send_notification, delete_query_execs
+)
 from executor_service.dependencies import db_session, get_user
-from executor_service.models.queries import QueryExecution, QueryDestination
+from executor_service.models.queries import QueryExecution, QueryDestination, QueryDestinationStatus
 from executor_service.services.crypto import encrypt
 from executor_service.settings import settings
 
@@ -47,6 +49,20 @@ async def select_query_exec(guid: str, user: dict, session: AsyncSession) -> Que
     if not available_to_user(query, user):
         raise HTTPException(status_code=401)
     return query
+
+
+async def select_query_execs(guids: list[str], user: dict, session: AsyncSession) -> list[QueryExecution]:
+    queries = await session.execute(
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid.in_(guids))
+    )
+    queries = queries.scalars().all()
+
+    for query in queries:
+        if not available_to_user(query, user):
+            raise HTTPException(status_code=401)
+    return queries
 
 
 async def select_query_result(guid: str, limit: int, offset: int, user: dict, session: AsyncSession) -> list[dict]:
@@ -145,3 +161,24 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
         }
     )
     return response
+
+
+@router.post('/delete-results')
+async def delete_results(query_delete_in: QueryDeleteIn, session=Depends(db_session), user=Depends(get_user)):
+    queries = await select_query_execs(query_delete_in.guids, user, session)
+    if not queries:
+        return
+    results = [{dest.dest_type: dest for dest in query.results} for query in queries]
+    try:
+        paths = [res['table'].path for res in results]
+    except KeyError:
+        raise HTTPException(status_code=422, detail='Query does not have results stored in table')
+    else:
+        await delete_query_execs(paths)
+
+    query_ids = [query.id for query in queries]
+    await session.execute(
+        update(QueryDestination)
+        .where(QueryDestination.query_id.in_(query_ids))
+        .values(status=QueryDestinationStatus.DELETED.value)
+    )

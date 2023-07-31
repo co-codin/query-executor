@@ -199,10 +199,6 @@ async def publish_result(guid: str, publish_in: QueryPublishIn, session=Depends(
                     finished_at=result.finished_at.strftime("%m/%d/%Y, %H:%M:%S"),
                     error_description=result.error_description,
                     access_creds=result.access_creds,
-                    publish_name=publish_in.publish_name,
-                    publish_status=publish_status,
-                    status=publish_status,
-                    finished_at=query_execution.finished_at.strftime("%m/%d/%Y, %H:%M:%S")
         )
         return JSONResponse(
             status_code=200,

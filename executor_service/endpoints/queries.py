@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from executor_service.schemas.queries import QueryIn, QueryDeleteIn
+from executor_service.schemas.queries import QueryIn, QueryDeleteIn, QueryPublishIn
 from executor_service.services.executor import (
     execute_query, get_query_result, terminate_query, send_notification, delete_query_execs
 )
@@ -18,6 +18,9 @@ from executor_service.dependencies import db_session, get_user
 from executor_service.models.queries import QueryExecution, QueryDestination, QueryDestinationStatus
 from executor_service.services.crypto import encrypt
 from executor_service.settings import settings
+from executor_service.services.clickhouse import ClickhouseService
+
+from datetime import datetime
 
 
 router = APIRouter(
@@ -161,6 +164,53 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
         }
     )
     return response
+
+
+@router.post('/{guid}/publish')
+async def publish_result(guid: str, publish_in: QueryPublishIn, session=Depends(db_session), user=Depends(get_user)):
+    query = await session.execute(
+        select(QueryExecution)
+        .options(selectinload(QueryExecution.results))
+        .where(QueryExecution.guid == guid)
+    )
+    query = query.scalars().first()
+
+    result = query.results[0]
+
+    if query is None:
+        raise HTTPException(status_code=404)
+    
+    clickhouseService = ClickhouseService()
+    clickhouseService.connect()
+    clickhouseService.createPublishTable(guid)
+    await clickhouseService.dropPublishTable(guid)
+    clickhouseService.createPublishTable(guid)
+
+    now = datetime.now()
+
+    try:
+        clickhouseService.insert(
+                    guid=guid,
+                    query_id=result.query_id,
+                    desk_type=result.desk_type,
+                    path=result.path,
+                    published_at=now.strftime("%m/%d/%Y, %H:%M:%S"),
+                    status=result.status,
+                    finished_at=result.finished_at.strftime("%m/%d/%Y, %H:%M:%S"),
+                    error_description=result.error_description
+                    access_creds=result.access_creds
+                    publish_name=publish_in.publish_name,
+                    publish_status=publish_status,
+                    status=publish_status,
+                    finished_at=query_execution.finished_at.strftime("%m/%d/%Y, %H:%M:%S")
+        )
+        return JSONResponse(
+            status_code=200,
+            content={"message": "success"},
+        )
+    except:
+        raise HTTPException(status_code=400)
+
 
 
 @router.post('/delete-results')

@@ -28,3 +28,7 @@ class QueryOut(BaseModel):
 
 class QueryDeleteIn(BaseModel):
     guids: list[str] = []
+
+
+class QueryPublishIn(BaseModel):
+    publish_name: str

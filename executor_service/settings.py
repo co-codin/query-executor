@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     thread_pool_size = 100
     encryption_key: str = '154de72125d4c917bd0764f09bc6af6265b28cd11da2efb659151ac02c7ca0d3'
 
+    clickhouse_connection_string: str = os.environ.get('dwh_query_executor_db_sources_clickhouse', 'clickhouse://clickhouse:dwh@clickhouse.lan:8123/dwh')
     class Config:
         env_prefix = "dwh_query_executor_"
         case_sensitive = False

@@ -166,32 +166,32 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
     return response
 
 
-@router.post('/{guid}/publish')
-async def publish_result(guid: str, 
-                        limit: int = Query(default=MAX_LIMIT-1, gt=0, lt=MAX_LIMIT),
-                        offset: int = Query(default=0, ge=0), 
-                        session=Depends(db_session), 
-                        user=Depends(get_user)
-                        ):
-    rows = await select_query_result(guid, limit, offset, user, session)
+# @router.post('/{guid}/publish')
+# async def publish_result(guid: str, 
+#                         limit: int = Query(default=MAX_LIMIT-1, gt=0, lt=MAX_LIMIT),
+#                         offset: int = Query(default=0, ge=0), 
+#                         session=Depends(db_session), 
+#                         user=Depends(get_user)
+#                         ):
+#     rows = await select_query_result(guid, limit, offset, user, session)
 
-    df = pd.DataFrame(rows)
+#     df = pd.DataFrame(rows)
     
-    clickhouseService = ClickhouseService()
-    clickhouseService.connect()
+#     clickhouseService = ClickhouseService()
+#     clickhouseService.connect()
 
-    schema = ','.join([f'{col} String' for col in df.columns])
+#     schema = ','.join([f'{col} String' for col in df.columns])
  
-    clickhouseService.createPublishTable(guid, schema)
+#     clickhouseService.createPublishTable(guid, schema)
 
-    try:
-        clickhouseService.execute(f'INSERT INTO publish_{guid} ({",".join(df.columns)}) VALUES', rows)
-        return JSONResponse(
-            status_code=200,
-            content={"message": "success"},
-        )
-    except:
-        raise HTTPException(status_code=400)
+#     try:
+#         clickhouseService.execute(f'INSERT INTO publish_{guid} ({",".join(df.columns)}) VALUES', rows)
+#         return JSONResponse(
+#             status_code=200,
+#             content={"message": "success"},
+#         )
+#     except:
+#         raise HTTPException(status_code=400)
 
 
 

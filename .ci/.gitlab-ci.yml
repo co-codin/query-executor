@@ -54,7 +54,7 @@ deploy:
     - path_value=$(printf '/%s(/|$)(.*)' "$CI_PROJECT_NAME")
     - yq eval ".ingress.hosts[0].host = env(SITE_URL) | .ingress.tls[0].hosts[0] = env(SITE_URL) | .ingress.hosts[0].paths[0].path = \"${path_value}\"" .ci/$CI_PROJECT_NAME/values.yaml > .ci/$CI_PROJECT_NAME/updated-values.yaml
     - >
-      helm upgrade --atomic --install -n smartdwh --timeout 1m 
+      helm upgrade --install -n smartdwh --timeout 1m 
       --set-string ciEnv="$CI_ENVIRONMENT_NAME" 
       --set-string secrets.encryption_key="$DWH_TASK_BROKER_ENCRYPTION_KEY_STRING"
       --set-string secrets.db_connection_string="$DB_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" 
@@ -68,4 +68,15 @@ deploy:
       --set image.repository=$DOCKER_REPO/$CI_PROJECT_NAME 
       --set-string 'podAnnotations.instrumentation\.opentelemetry\.io/inject-python=true'
       $CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME ./.ci/$CI_PROJECT_NAME -f .ci/$CI_PROJECT_NAME/updated-values.yaml
-
+    - DEPLOYMENT_ROLLOUT_STATUS=$(kubectl rollout status -n smartdwh deployment/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME 2>&1)
+    - DEPLOYMENT_ROLLOUT_SUCCESS=$?
+    - |
+      if [ $DEPLOYMENT_ROLLOUT_SUCCESS -ne 0 ]; 
+        then echo "$DEPLOYMENT_ROLLOUT_STATUS" && echo "Rolling back..." \
+        && kubectl get pods -n smartdwh \
+        && kubectl describe po -n smartdwh -l app="$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" \
+        && FAILED_POD=$(kubectl get pods -n smartdwh -l app="$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" --field-selector status.phase!=Running -o jsonpath="{.items[0].metadata.name}") \
+        && kubectl logs -n smartdwh "$FAILED_POD" \
+        && helm rollback $CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME \
+        && exit 1; 
+      fi

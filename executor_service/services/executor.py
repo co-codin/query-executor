@@ -62,6 +62,8 @@ async def get_query_result(db_table: str, limit: int, offset: int) -> list[dict]
 
 
 async def delete_query_execs(db_tables: list[str]) -> None:
+    if not db_tables:
+        return 
     tables = sql_builder.SQL(', ').join(map(sql_builder.Identifier, db_tables))
     drop_tables_sql = sql_builder.SQL('DROP TABLE IF EXISTS {}').format(tables)
 

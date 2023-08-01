@@ -196,6 +196,7 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
 
 
 
+
 @router.post('/delete-results')
 async def delete_results(query_delete_in: QueryDeleteIn, session=Depends(db_session), user=Depends(get_user)):
     queries = await select_query_execs(query_delete_in.guids, user, session)

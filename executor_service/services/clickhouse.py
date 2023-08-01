@@ -14,16 +14,18 @@ class ClickhouseService:
     def connect(self):
         self.client = clickhouse_connect.get_client(dsn=settings.clickhouse_connection_string)
 
-    def createPublishTable(self, guid: str):
+    def createPublishTable(self, guid: str, schema: str):
         self.client.command(
-            "CREATE TABLE IF NOT EXISTS {}_{} (query_id UInt32, dest_type String, path String, published_at String, status String, finished_at String, error_description String, access_creds String) ENGINE MergeTree ORDER BY query_id"
-            .format("publish", guid)
+            f'CREATE TABLE IF NOT EXISTS publish_{guid} ({schema}) ENGINE MergeTree'
         )
 
     async def dropPublishTable(self, guid: str):
         self.client.command(
             "DROP TABLE {}_{}".format("publish", guid)
         )
+
+    def execute(self, command: str):
+        self.client.command(command)
 
     def insert(self, guid, query_id, desk_type, path, published_at, status, finished_at, error_description, access_creds):
         data = [[query_id, desk_type, path, published_at, status, finished_at, error_description, access_creds]]

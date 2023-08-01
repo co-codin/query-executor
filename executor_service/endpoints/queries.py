@@ -167,45 +167,32 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
 
 
 @router.post('/{guid}/publish')
-async def publish_result(guid: str, publish_in: QueryPublishIn, session=Depends(db_session), user=Depends(get_user)):
-    query = await session.execute(
-        select(QueryExecution)
-        .options(selectinload(QueryExecution.results))
-        .where(QueryExecution.guid == guid)
-    )
-    query = query.scalars().first()
+async def publish_result(guid: str, 
+                        limit: int = Query(default=MAX_LIMIT-1, gt=0, lt=MAX_LIMIT),
+                        offset: int = Query(default=0, ge=0), 
+                        session=Depends(db_session), 
+                        user=Depends(get_user)
+                        ):
+    rows = await select_query_result(guid, limit, offset, user, session)
 
-    result = query.results[0]
-
-    if query is None:
-        raise HTTPException(status_code=404)
+    df = pd.DataFrame(rows)
     
     clickhouseService = ClickhouseService()
     clickhouseService.connect()
-    clickhouseService.createPublishTable(guid)
-    await clickhouseService.dropPublishTable(guid)
-    clickhouseService.createPublishTable(guid)
 
-    now = datetime.now()
+    schema = ','.join([f'{col} String' for col in df.columns])
+ 
+    clickhouseService.createPublishTable(guid, schema)
 
     try:
-        clickhouseService.insert(
-                    guid=guid,
-                    query_id=result.query_id,
-                    desk_type=result.desk_type,
-                    path=result.path,
-                    published_at=now.strftime("%m/%d/%Y, %H:%M:%S"),
-                    status=result.status,
-                    finished_at=result.finished_at.strftime("%m/%d/%Y, %H:%M:%S"),
-                    error_description=result.error_description,
-                    access_creds=result.access_creds,
-        )
+        clickhouseService.execute(f'INSERT INTO publish_{guid} ({",".join(df.columns)}) VALUES', rows)
         return JSONResponse(
             status_code=200,
             content={"message": "success"},
         )
     except:
         raise HTTPException(status_code=400)
+
 
 
 

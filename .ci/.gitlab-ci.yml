@@ -60,6 +60,7 @@ deploy:
       --set-string secrets.db_connection_string="$DB_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME" 
       --set-string secrets.db_migration_connection_string="$DB_MIGRATION_CONNECTION_STRING/$CI_PROJECT_NAME-$CI_ENVIRONMENT_NAME"
       --set-string secrets.db_sources_raw="$DB_CONNECTION_STRING/dwh-$CI_ENVIRONMENT_NAME"
+      --set-string secrets.db_connection_string_results="$DB_CONNECTION_STRING/results-$CI_ENVIRONMENT_NAME"
       --set-string secrets.db_sources_clickhouse="$CLICKHOUSE_CONNECTION/dwh-$CI_ENVIRONMENT_NAME"
       --set-string secrets.mq_connection_string="$MQ_CONN_STRING" 
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 

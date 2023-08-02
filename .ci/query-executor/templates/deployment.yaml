@@ -4,7 +4,7 @@ metadata:
   name: {{ include "query-executor.fullname" . }}
   labels:
     {{- include "query-executor.labels" . | nindent 4 }}
-    {{- if .Values.ciEnv }}
+    {{- if ne .Values.ciEnv "" }}
     environment: {{ .Values.ciEnv }}
     {{- end }}
 spec:
@@ -25,12 +25,14 @@ spec:
     spec:
       initContainers:
         - name: "{{ .Chart.Name }}-migrations"
-          image: "{{ .Values.image.repository }}-migrations:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
           envFrom:
             - secretRef:
                 name: {{ include "query-executor.fullname" . }}-secret
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ include "query-executor.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
@@ -94,4 +96,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      

@@ -32,7 +32,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "query-executor.fullname" . }}-secret
                   key: dwh_query_executor_db_migration_connection_string
-      {{- with .Values.imagePullSecrets }}
+            - name: dwh_query_executor_db_connection_string_results
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "query-executor.fullname" . }}-secret
+                  key: dwh_query_executor_db_connection_string_results
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -8,11 +8,11 @@ LOG = logging.getLogger(__name__)
 
 class ClickhouseService:
     def __init__(self):
-        self._conn_string = settings.clickhouse_connection_string
+        self._conn_string = settings.db_sources_clickhouse
         self.client = None
 
     def connect(self):
-        self.client = clickhouse_connect.get_client(dsn=settings.clickhouse_connection_string)
+        self.client = clickhouse_connect.get_client(dsn=settings.db_sources_clickhouse)
 
     def createPublishTable(self, guid: str, schema: str):
         self.client.command(

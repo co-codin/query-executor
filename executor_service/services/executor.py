@@ -263,7 +263,7 @@ async def _load_into_table(query, write_from):
         ddl = [f'CREATE TABLE IF NOT EXISTS {table_name} ({ORDER_KEY} BIGSERIAL PRIMARY KEY,']
         fields = []
         for name, type_ in zip_longest(names, types):
-            fields.append(f'"{name}" {type_}')
+            fields.append(f'"{name}" {type_} NULL')
         ddl.append(','.join(fields))
         ddl.append(')')
 

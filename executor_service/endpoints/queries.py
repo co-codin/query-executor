@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
+import sys
 
 from executor_service.schemas.queries import QueryIn, QueryDeleteIn, QueryPublishIn
 from executor_service.services.executor import (
@@ -149,7 +150,7 @@ async def get_result(guid: str,
 
 @router.get('/{guid}/download')
 async def download_result(guid: str, session=Depends(db_session), user=Depends(get_user)):
-    rows = await select_query_result(guid, MAX_LIMIT-1, 0, user, session)
+    rows = await select_query_result(guid, sys.maxsize, 0, user, session)
 
     df = pd.DataFrame(rows)
     stream = io.StringIO()

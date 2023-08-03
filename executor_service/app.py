@@ -4,10 +4,12 @@ import logging
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from executor_service.endpoints import queries, keys
 from executor_service.errors import APIError
 from executor_service.auth import load_jwks
+from executor_service.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,13 @@ def create_app() -> FastAPI:
         title="Query executor app",
         description="API for query executor app",
     )
-
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     return app
 
 

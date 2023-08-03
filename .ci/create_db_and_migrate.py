@@ -4,6 +4,13 @@ from alembic.config import Config
 from alembic import command
 from executor_service.settings import settings
 
+engine = create_engine(settings.db_connection_string_results)
+
+if not database_exists(engine.url):
+    print("DB does not exist, creating...")
+    create_database(engine.url)
+else:
+    print("DB already exists, skipping")
 
 engine = create_engine(settings.db_migration_connection_string)
 

@@ -26,12 +26,9 @@ spec:
       initContainers:
         - name: "{{ .Chart.Name }}-migrations"
           image: "{{ printf "%s-migrations:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}"
-          env:
-            - name: DWH_QUERY_EXECUTOR_DB_MIGRATION_CONNECTION_STRING
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "query-executor.fullname" . }}-secret
-                  key: dwh_query_executor_db_migration_connection_string
+          envFrom:
+            - secretRef:
+                name: {{ include "query-executor.fullname" . }}-secret
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

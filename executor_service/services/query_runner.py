@@ -4,12 +4,12 @@ import asyncio
 import clickhouse_connect
 
 from abc import ABC, abstractmethod
-from typing import List, AsyncIterable
+from typing import AsyncIterable
 from clickhouse_connect.driver.exceptions import DatabaseError
 
 from executor_service._msgpack_io import msgpack_writer
 from executor_service.errors import QueryNotRunning
-from executor_service.settings import settings
+
 
 LOG = logging.getLogger(__name__)
 
@@ -33,13 +33,14 @@ class QueryRunner(ABC):
         ...
 
     @staticmethod
-    async def _save_to_dir(write_to: str, col_names: List, col_types: List, rows: AsyncIterable):
+    async def _save_to_dir(write_to: str, col_names: list, col_types: list, rows: AsyncIterable):
         with msgpack_writer(write_to) as writer:
             # first two rows name and types
             writer.writerow(col_names)
             writer.writerow(col_types)
 
             async for record in rows:
+                record = tuple(map(str, record))
                 writer.writerow(record)
 
 

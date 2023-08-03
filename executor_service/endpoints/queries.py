@@ -194,9 +194,6 @@ async def publish_result(guid: str,
         raise HTTPException(status_code=400)
 
 
-
-
-
 @router.post('/delete-results')
 async def delete_results(query_delete_in: QueryDeleteIn, session=Depends(db_session), user=Depends(get_user)):
     queries = await select_query_execs(query_delete_in.guids, user, session)
@@ -204,7 +201,7 @@ async def delete_results(query_delete_in: QueryDeleteIn, session=Depends(db_sess
         return
     results = [{dest.dest_type: dest for dest in query.results} for query in queries]
     try:
-        paths = [res['table'].path for res in results]
+        paths = [res['table'].path for res in results if res['table'].path]
     except KeyError:
         raise HTTPException(status_code=422, detail='Query does not have results stored in table')
     else:

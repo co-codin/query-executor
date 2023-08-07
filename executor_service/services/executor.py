@@ -276,11 +276,7 @@ async def _load_into_table(query, write_from):
                 await cursor.execute(ddl)
                 user_name = f'sdwh_run_{query.id}'
                 user_pass = _generate_random_string(8)
-                await cursor.execute(f"""if not exists (select * from pg_user where     usename = {user_name}) then
-                CREATE USER {user_name} WITH password {user_pass};
-                end if;""")
-                
-                # await cursor.execute(f"CREATE USER {user_name} WITH password %s", [user_pass])
+                await cursor.execute(f"CREATE USER {user_name} WITH password %s", [user_pass])
                 await cursor.execute(f"GRANT SELECT ON {table_name} TO {user_name}")
 
                 for batch_records in to_batches(100, reader):

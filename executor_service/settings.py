@@ -22,11 +22,6 @@ class Settings(BaseSettings):
     db_connection_string_results: str = 'postgresql://postgres:dwh@db.lan:5432/results'
     api_iam = 'http://iam.lan:8000'
 
-    minio_host: str = 'minio.lan:9000'
-    minio_access_key: str = 'dwh_access_key'
-    minio_secret_key: str = 'dwh_secret_key'
-    minio_bucket_name: str = 'results'
-
     mq_connection_string: str = 'amqp://dwh:dwh@rabbit.lan:5672'
     exchange_execute = 'query_execute'
 

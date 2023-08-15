@@ -19,21 +19,11 @@ secrets:
   db_sources_raw: ""
   db_sources_clickhouse: ""
   db_connection_string_results: ""
-  minio_host: ""
-  minio_access_key: ""
-  minio_secret_key: ""
-  minio_bucket_name: ""
   mq_connection_string: ""
 
 configmap:
   api_iam: "http://iam-dev:8000"
   exchange_execute: ""
-
-# if storageClassName is ceph-bucket, then s3 will be created and connected to service automatically
-# else add values to secrets section and lease storageClassName blank ("")
-# TODO: check if minio can create secrets with keys and cm with connection endpoints in k8s
-storageS3:
-  storageClassName: "ceph-bucket"
 
 imagePullSecrets: []
 nameOverride: ""

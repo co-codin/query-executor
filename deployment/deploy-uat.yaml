@@ -37,8 +37,6 @@ spec:
           value: "postgresql://postgres:dwh@postgres:5432/results"
         - name: dwh_query_executor_api_iam
           value: http://iam:8000
-        - name: dwh_query_executor_minio_host
-          value: minio:9000
         - name: dwh_query_executor_mq_connection_string
           value: amqp://dwh:dwh@rabbitmq:5672
         - name: LOG_DIR

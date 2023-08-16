@@ -25,7 +25,6 @@ from executor_service.database import AsyncSession
 from executor_service.errors import QueryNotFoundError, QueryNotRunning
 from executor_service.mq import create_channel
 from executor_service.models.queries import QueryExecution, QueryStatus, QueryDestinationStatus
-from executor_service.fs import fs_client
 from executor_service.database import db_session
 from executor_service.services.query_runner import QueryRunnerFactory
 from executor_service.services.crypto import decrypt

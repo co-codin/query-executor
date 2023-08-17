@@ -250,7 +250,8 @@ async def _insert_many(cursor, table_name, field_names, records):
     values_template = ','.join(['%s'] * len(field_names))
 
     for r in records:
-        value = cursor.mogrify(f'({values_template})', r)
+        row = [None if col == 'None' else col for col in r]
+        value = cursor.mogrify(f'({values_template})', row)
         values.append(value)
 
     sql = ''.join([

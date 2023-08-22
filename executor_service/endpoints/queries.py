@@ -154,7 +154,7 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
 
     df = pd.DataFrame(rows)
     stream = io.StringIO()
-    df.to_csv(stream, index=False)
+    df.to_csv(stream, index=False, encoding='utf-8-sig')
 
     response = StreamingResponse(
         iter([stream.getvalue()]),

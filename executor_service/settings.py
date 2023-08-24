@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     thread_pool_size = 100
     encryption_key: str = '154de72125d4c917bd0764f09bc6af6265b28cd11da2efb659151ac02c7ca0d3'
 
-    db_sources_clickhouse: str = 'clickhouse://clickhouse:dwh@clickhouse.lan:8123/dwh'
+    clickhouse_connection_string: str = 'clickhouse://clickhouse:dwh@clickhouse.lan:8123/dwh'
     origins: list[str] = [
         '*'
     ]

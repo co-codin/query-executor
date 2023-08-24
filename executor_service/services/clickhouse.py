@@ -15,18 +15,18 @@ LOG = logging.getLogger(__name__)
 
 class ClickhouseService:
     def __init__(self):
-        self._conn_string = settings.db_sources_clickhouse
+        self._conn_string = settings.clickhouse_connection_string
         self.client: Client | None = None
 
     def connect(self):
-        self.client = get_client(dsn=settings.db_sources_clickhouse)
+        self.client = get_client(dsn=settings.clickhouse_connection_string)
         return self
 
     def create_publish_table(self, publish_name: str, df: pd.DataFrame):
         self._ping()
         col_names_and_types = self._get_col_names_and_types_from_df(df)
         schema = ','.join(col_names_and_types)
-        db = settings.db_sources_clickhouse.rsplit('/', maxsplit=1)[1]
+        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         self.client.command(
             f"""
                 CREATE OR REPLACE TABLE {{db:Identifier}}.{{table:Identifier}} (id UInt64, {schema})
@@ -51,12 +51,12 @@ class ClickhouseService:
     def insert_dataframe(self, table: str, df: pd.DataFrame):
         self._ping()
         df['id'] = np.arange(1, df.shape[0] + 1)
-        db = settings.db_sources_clickhouse.rsplit('/', maxsplit=1)[1]
+        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         self.client.insert_df(f'{db}.{table}', df)
 
     def exist(self, publish_name) -> bool:
         self._ping()
-        db = settings.db_sources_clickhouse.rsplit('/', maxsplit=1)[1]
+        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         res = self.client.query(
             "EXISTS TABLE {db:Identifier}.{table:Identifier}",
             parameters={'db': db, 'table': publish_name}

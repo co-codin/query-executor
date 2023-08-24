@@ -1,5 +1,3 @@
-import os
-
 from pydantic import BaseSettings
 
 
@@ -32,6 +30,10 @@ class Settings(BaseSettings):
     origins: list[str] = [
         '*'
     ]
+
+    publish_exchange: str = 'publish_exchange'
+    publish_request_queue: str = 'publish_requests'
+    publish_result_queue: str = 'publish_results'
     
     class Config:
         env_prefix = "dwh_query_executor_"

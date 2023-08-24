@@ -1,6 +1,7 @@
-# type: ignore[no-untyped-def]
 import asyncio
 import io
+import logging
+import sys
 import pandas as pd
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,9 +10,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
-import sys
 
-from executor_service.schemas.queries import QueryIn, QueryDeleteIn, QueryPublishIn
+from executor_service.schemas.queries import QueryIn, QueryDeleteIn
 from executor_service.services.executor import (
     execute_query, get_query_result, terminate_query, send_notification, delete_query_execs
 )
@@ -19,19 +19,18 @@ from executor_service.dependencies import db_session, get_user
 from executor_service.models.queries import QueryExecution, QueryDestination, QueryDestinationStatus
 from executor_service.services.crypto import encrypt
 from executor_service.settings import settings
-from executor_service.services.clickhouse import ClickhouseService
-
-from datetime import datetime
 
 
 router = APIRouter(
     prefix="/queries",
     tags=["queries"],
-    responses={404: {"description": "Not found"}},
+
 )
 
 
 MAX_LIMIT = 1000
+
+logger = logging.getLogger(__name__)
 
 
 def available_to_user(query: QueryExecution, user: dict):
@@ -165,34 +164,6 @@ async def download_result(guid: str, session=Depends(db_session), user=Depends(g
         }
     )
     return response
-
-
-@router.post('/{guid}/publish')
-async def publish_result(guid: str, 
-                        limit: int = Query(default=MAX_LIMIT-1, gt=0, lt=MAX_LIMIT),
-                        offset: int = Query(default=0, ge=0), 
-                        session=Depends(db_session), 
-                        user=Depends(get_user)
-                        ):
-    rows = await select_query_result(guid, limit, offset, user, session)
-
-    df = pd.DataFrame(rows)
-    
-    clickhouseService = ClickhouseService()
-    clickhouseService.connect()
-
-    schema = ','.join([f'{col} String' for col in df.columns])
- 
-    clickhouseService.createPublishTable(guid, schema)
-
-    try:
-        clickhouseService.execute(f'INSERT INTO publish_{guid} ({",".join(df.columns)}) VALUES', rows)
-        return JSONResponse(
-            status_code=200,
-            content={"message": "success"},
-        )
-    except:
-        raise HTTPException(status_code=400)
 
 
 @router.post('/delete-results')

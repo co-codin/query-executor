@@ -30,18 +30,18 @@ class ClickhouseService:
         db = settings.db_sources_clickhouse.rsplit('/', maxsplit=1)[1]
         self.client.command(
             f"""
-                CREATE OR REPLACE TABLE {db}.{publish_name} (id UInt64, {schema})
+                CREATE OR REPLACE TABLE {{db:Identifier}}.{{table:Identifier}} (id UInt64, {schema})
                 ENGINE MergeTree()
                 ORDER BY id
-            """
+            """,
+            parameters={'db': db, 'table': publish_name}
         )
 
     def _get_col_names_and_types_from_df(self, df: pd.DataFrame) -> Iterable[str]:
         df_json = df.head(2).to_json(orient="records")
         res = self.client.query(
-            f"""
-                DESC format(JSONEachRow, {json.dumps(df_json)})
-            """
+            'DESC format(JSONEachRow, {df_json:String})',
+            parameters={'df_json': df_json}
         )
         col_names_and_types = (
             f"{res_tuple[0]} {res_tuple[1]}"
@@ -57,7 +57,11 @@ class ClickhouseService:
 
     def exist(self, publish_name) -> bool:
         self._ping()
-        res = self.client.query("EXISTS TABLE {table:Identifier}", parameters={'table': f'{publish_name}'})
+        db = settings.db_sources_clickhouse.rsplit('/', maxsplit=1)[1]
+        res = self.client.query(
+            "EXISTS TABLE {db:Identifier}.{table:Identifier}",
+            parameters={'db': db, 'table': publish_name}
+        )
         return res.result_rows[0][0]
 
     def _ping(self):

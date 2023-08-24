@@ -1,14 +1,18 @@
 # type: ignore[attr-defined]
+import asyncio
 import os
 import logging
+from typing import Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from executor_service.endpoints import queries, keys
+from executor_service.endpoints import queries, keys, publications
+from executor_service.services.publish_request_lifespan import publish_request
 from executor_service.errors import APIError
 from executor_service.auth import load_jwks
+from executor_service.mq import create_channel
 from executor_service.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -34,12 +38,24 @@ executor_app = create_app()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 executor_app.include_router(queries.router, prefix='/v1')
+executor_app.include_router(publications.router, prefix='/v1')
 executor_app.include_router(keys.router, prefix='/v1')
 
 
 @executor_app.on_event('startup')
 async def on_startup():
     await load_jwks()
+
+    async with create_channel() as channel:
+        await channel.exchange_declare(settings.publish_exchange, 'direct')
+
+        await channel.queue_declare(settings.publish_request_queue)
+        await channel.queue_bind(settings.publish_request_queue, settings.publish_exchange, 'task')
+
+        await channel.queue_declare(settings.publish_result_queue)
+        await channel.queue_bind(settings.publish_result_queue, settings.publish_exchange, 'result')
+
+        asyncio.create_task(consume(settings.publish_request_queue, publish_request))
 
 
 @executor_app.middleware("http")
@@ -91,3 +107,21 @@ def api_exception_handler(_request: Request, exc: APIError) -> JSONResponse:
         status_code=exc.status_code,
         content={"message": exc.message},
     )
+
+
+async def consume(query, func: Callable):
+    while True:
+        try:
+            logger.info(f'Starting {query} worker')
+            async with create_channel() as channel:
+                async for delivery_tag, body in channel.consume(query):
+                    try:
+                        await func(body, channel)
+                        await channel.basic_ack(delivery_tag)
+                    except Exception as e:
+                        logger.exception(f'Failed to process message {body}: {e}')
+                        await channel.basic_reject(delivery_tag, requeue=False)
+        except Exception as e:
+            logger.exception(f'Worker {query} failed: {e}')
+
+        await asyncio.sleep(0.5)

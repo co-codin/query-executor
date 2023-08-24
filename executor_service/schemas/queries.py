@@ -31,4 +31,6 @@ class QueryDeleteIn(BaseModel):
 
 
 class QueryPublishIn(BaseModel):
+    guid: str
     publish_name: str
+    identity_id: str

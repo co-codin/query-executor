@@ -1,10 +1,15 @@
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from alembic.config import Config
 from alembic import command
 from executor_service.settings import settings
 
+logger = logging.getLogger(__name__)
 engine = create_engine(settings.db_connection_string_results)
+
+logger.info(f"CONN STRING: {settings.clickhouse_connection_string}")
 
 if not database_exists(engine.url):
     print("DB does not exist, creating...")

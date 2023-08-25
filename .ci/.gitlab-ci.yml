@@ -66,7 +66,7 @@ deploy:
       --set-string secrets.publish_exchange="publish_exchange-$CI_ENVIRONMENT_NAME"
       --set-string secrets.publish_request_queue="publish_requests-$CI_ENVIRONMENT_NAME"
       --set-string secrets.publish_result_queue="publish_results-$CI_ENVIRONMENT_NAME"
-      --set-string secrets.clickhouse_connection_string="$CLICKHOUSE_CONNECTION/dwh-$$CI_ENVIRONMENT_NAME"
+      --set-string secrets.clickhouse_connection_string="$CLICKHOUSE_CONNECTION/dwh-$CI_ENVIRONMENT_NAME"
       --set-string configmap.api_iam="http://iam-$CI_ENVIRONMENT_NAME:8000" 
       --set-string configmap.exchange_execute="query_execute_$CI_ENVIRONMENT_NAME"
       --set image.tag=$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA 

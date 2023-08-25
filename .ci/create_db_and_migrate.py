@@ -6,7 +6,6 @@ from executor_service.settings import settings
 
 engine = create_engine(settings.db_connection_string_results)
 
-print(f"CONN STRING: {settings.clickhouse_connection_string}")
 
 if not database_exists(engine.url):
     print("DB does not exist, creating...")

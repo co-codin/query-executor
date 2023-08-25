@@ -4,7 +4,6 @@ from alembic.config import Config
 from alembic import command
 from executor_service.settings import settings
 
-logger = logging.getLogger(__name__)
 engine = create_engine(settings.db_connection_string_results)
 
 print(f"CONN STRING: {settings.clickhouse_connection_string}")

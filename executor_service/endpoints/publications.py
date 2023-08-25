@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from executor_service.database import clickhouse_client
+from executor_service.database.clickhouse import clickhouse_client
 
 router = APIRouter(
     prefix="/publications",

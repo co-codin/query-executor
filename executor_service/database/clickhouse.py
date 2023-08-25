@@ -68,3 +68,6 @@ class ClickhouseService:
             self.client.query('SELECT 1')
         except ClickHouseError:
             self.connect()
+
+
+clickhouse_client = ClickhouseService().connect()

@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 
-from executor_service.services.clickhouse import ClickhouseService
 from executor_service.settings import settings
 
 
@@ -14,7 +13,6 @@ engine = create_async_engine(
     pool_pre_ping=True
 )
 
-clickhouse_client = ClickhouseService().connect()
 
 async_session = sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 
 from executor_service.mq import PikaChannel, create_channel
-from executor_service.database import db_session as _db_session
+from executor_service.database.sqlalchemy import db_session as _db_session
 from executor_service.auth import decode_jwt
 
 

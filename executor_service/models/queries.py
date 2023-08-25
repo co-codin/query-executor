@@ -5,7 +5,7 @@ from sqlalchemy import Column, DateTime, BigInteger, String, Text, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
-from executor_service.database import Base
+from executor_service.database.sqlalchemy import Base
 
 
 class QueryStatus(Enum):

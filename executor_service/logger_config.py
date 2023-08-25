@@ -1,8 +1,9 @@
 import os
 import logging
+import ecs_logging
+
 from logging.handlers import TimedRotatingFileHandler
 
-import ecs_logging
 from executor_service.settings import settings
 
 

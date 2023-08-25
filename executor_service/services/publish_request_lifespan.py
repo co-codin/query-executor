@@ -8,7 +8,8 @@ from enum import Enum
 from executor_service.mq import PikaChannel
 from executor_service.schemas.queries import QueryPublishIn
 from executor_service.endpoints.queries import select_query_result
-from executor_service.database import db_session, clickhouse_client
+from executor_service.database.sqlalchemy import db_session
+from executor_service.database.clickhouse import clickhouse_client
 from executor_service.settings import settings
 
 

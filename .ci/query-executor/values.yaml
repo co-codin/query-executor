@@ -17,7 +17,7 @@ secrets:
   db_connection_string: ""
   db_migration_connection_string: ""
   db_sources_raw: ""
-  db_sources_clickhouse: ""
+  clickhouse_connection_string: ""
   db_connection_string_results: ""
   mq_connection_string: ""
 

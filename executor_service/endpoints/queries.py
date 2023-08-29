@@ -103,8 +103,8 @@ async def execute(query_data: QueryIn, session=Depends(db_session)):
     }
 
 
-@router.post("/error-create")
-async def error_create(query_data: QueryErrorIn, session=Depends(db_session)):
+@router.post("/log-error")
+async def log_error(query_data: QueryErrorIn, session=Depends(db_session)):
     query = QueryExecution(
         guid=query_data.run_guid,
         query=query_data.query,
@@ -115,6 +115,16 @@ async def error_create(query_data: QueryErrorIn, session=Depends(db_session)):
 
     session.add(query)
     await session.commit()
+
+
+@router.get("/log-download/{guid}")
+async def log_download(guid: str, session=Depends(db_session), user=Depends(get_user)):
+    query = await select_query_exec(guid, user, session)
+
+    if not query.error_description:
+        raise HTTPException(status_code=404, detail='Query does not have error log')
+    
+    return query.error_description
 
 
 @router.delete("/{guid}")

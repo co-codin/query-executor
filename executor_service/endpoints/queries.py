@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from executor_service.schemas.queries import QueryIn, QueryDeleteIn
+from executor_service.schemas.queries import QueryErrorIn, QueryIn, QueryDeleteIn
 from executor_service.services.executor import (
     execute_query, get_query_result, terminate_query, send_notification, delete_query_execs
 )
@@ -101,6 +101,20 @@ async def execute(query_data: QueryIn, session=Depends(db_session)):
         'id': query.id,
         'guid': query.guid,
     }
+
+
+@router.post("/error-create")
+async def error_create(query_data: QueryErrorIn, session=Depends(db_session)):
+    query = QueryExecution(
+        guid=query_data.run_guid,
+        query=query_data.query,
+        db=encrypt(settings.encryption_key, query_data.conn_string),
+        identity_id=query_data.identity_id,
+        error_description=query_data.error_description,
+    )
+
+    session.add(query)
+    await session.commit()
 
 
 @router.delete("/{guid}")

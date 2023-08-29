@@ -15,6 +15,13 @@ class QueryIn(BaseModel):
     identity_id: str
     conn_string: str
 
+class QueryErrorIn(BaseModel):
+    guid: str
+    run_guid: str
+    query: str
+    error_description: str
+    identity_id: str
+    conn_string: str
 
 class QueryResultIn(BaseModel):
     limit: int

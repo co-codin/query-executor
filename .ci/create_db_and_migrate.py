@@ -31,4 +31,4 @@ print('Creating clickhouse db')
 conn_string, db_name = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)
 
 clickhouse_client = get_client(dsn=conn_string)
-clickhouse_client.command('CREATE DATABASE IF NOT EXISTS {{name:Identifier}}', parameters={'name': db_name})
+clickhouse_client.command('CREATE DATABASE IF NOT EXISTS {name:Identifier}', parameters={'name': db_name})

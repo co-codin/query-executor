@@ -14,4 +14,4 @@ MAX_LIMIT = 1000
 
 @router.get('/', response_model=bool)
 async def publish_exist(publish_name: str):
-    return clickhouse_client.connect().exist(publish_name)
+    return clickhouse_client.exist(publish_name)

@@ -30,7 +30,6 @@ async def publish_request(body: bytes, mq: PikaChannel):
         )
 
         df = pd.DataFrame(rows)
-        clickhouse_client.connect()
         clickhouse_client.create_publish_table(query_publish_in.publish_name, df)
 
         try:

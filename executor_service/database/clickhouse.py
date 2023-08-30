@@ -36,10 +36,6 @@ class ClickhouseService:
             parameters={'db': db, 'table': publish_name}
         )
 
-    def create_db(self):
-        db_name = self._conn_string.rsplit('/', maxsplit=1)[1]
-        self.client.command('CREATE DATABASE IF NOT EXISTS {{name}}', parameters={'name': db_name})
-
     def _get_col_names_and_types_from_df(self, df: pd.DataFrame) -> Iterable[str]:
         df_json = df.head(2).to_json(orient="records")
         res = self.client.query(

@@ -2,7 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from alembic.config import Config
 from alembic import command
-from executor_service.database.clickhouse import clickhouse_client
+
+from clickhouse_connect import get_client
 from executor_service.settings import settings
 
 engine = create_engine(settings.db_connection_string_results)
@@ -26,4 +27,8 @@ alembic_cfg = Config("alembic.ini")
 command.upgrade(alembic_cfg, "head")
 
 print('Creating clickhouse db')
-clickhouse_client.create_db()
+
+conn_string, db_name = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)
+
+clickhouse_client = get_client(dsn=conn_string)
+clickhouse_client.command('CREATE DATABASE IF NOT EXISTS {{name}}', parameters={'name': db_name})

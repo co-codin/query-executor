@@ -10,6 +10,6 @@ argon2-cffi==21.3.0
 cryptography==38.0.3
 msgpack==1.0.3
 pyjwt == 2.6.0
-clickhouse-connect==0.5.10
+clickhouse-connect==0.6.10
 pandas==2.0.3
 numpy==1.25.1

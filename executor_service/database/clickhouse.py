@@ -23,7 +23,7 @@ class ClickhouseService:
         return self
 
     def create_publish_table(self, publish_name: str, df: pd.DataFrame):
-        # self._ping()
+        self._ping()
         col_names_and_types = self._get_col_names_and_types_from_df(df)
         schema = ','.join(col_names_and_types)
         db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
@@ -49,13 +49,13 @@ class ClickhouseService:
         return col_names_and_types
 
     def insert_dataframe(self, table: str, df: pd.DataFrame):
-        # self._ping()
+        self._ping()
         df['id'] = np.arange(1, df.shape[0] + 1)
         db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         self.client.insert_df(f'{db}.{table}', df)
 
     def exist(self, publish_name) -> bool:
-        # self._ping()
+        self._ping()
         db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         res = self.client.query(
             "EXISTS TABLE {db:Identifier}.{table:Identifier}",

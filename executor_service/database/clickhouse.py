@@ -70,4 +70,4 @@ class ClickhouseService:
             self.connect()
 
 
-clickhouse_client = ClickhouseService().connect()
+clickhouse_client = ClickhouseService()

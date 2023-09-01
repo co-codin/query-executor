@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 
+
 from typing import Iterable
 
 from clickhouse_connect import get_client
@@ -26,14 +27,13 @@ class ClickhouseService:
         self._ping()
         col_names_and_types = self._get_col_names_and_types_from_df(df)
         schema = ','.join(col_names_and_types)
-        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         self.client.command(
             f"""
-                CREATE OR REPLACE TABLE {{db:Identifier}}.{{table:Identifier}} (id UInt64, {schema})
+                CREATE OR REPLACE TABLE {{table:Identifier}} (id UInt64, {schema})
                 ENGINE MergeTree()
                 ORDER BY id
             """,
-            parameters={'db': db, 'table': publish_name}
+            parameters={'table': publish_name}
         )
 
     def _get_col_names_and_types_from_df(self, df: pd.DataFrame) -> Iterable[str]:
@@ -51,15 +51,13 @@ class ClickhouseService:
     def insert_dataframe(self, table: str, df: pd.DataFrame):
         self._ping()
         df['id'] = np.arange(1, df.shape[0] + 1)
-        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
-        self.client.insert_df(f'{db}.{table}', df)
+        self.client.insert_df(table, df)
 
     def exist(self, publish_name) -> bool:
         self._ping()
-        db = settings.clickhouse_connection_string.rsplit('/', maxsplit=1)[1]
         res = self.client.query(
-            "EXISTS TABLE {db:Identifier}.{table:Identifier}",
-            parameters={'db': db, 'table': publish_name}
+            "EXISTS TABLE {table:Identifier}",
+            parameters={'table': publish_name}
         )
         return res.result_rows[0][0]
 
